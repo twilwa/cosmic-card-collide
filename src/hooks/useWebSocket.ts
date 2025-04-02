@@ -274,7 +274,8 @@ export const useWebSocket = () => {
       case MessageType.PLAY_CARD:
         // Find the card in player's hand
         const player = gameStateRef.current.players[0];
-        const cardIndex = player.hand.findIndex(c => c.instanceId === message.cardInstanceId);
+        const cardInstanceId = 'cardInstanceId' in message ? message.cardInstanceId : '';
+        const cardIndex = player.hand.findIndex(c => c.instanceId === cardInstanceId);
         
         if (cardIndex === -1) {
           mockSocketRef.current?.onMessage({
@@ -316,51 +317,55 @@ export const useWebSocket = () => {
             newResources.credits += effect.value;
           } else if (effect.type === 'DRAW_CARD' && effect.value) {
             setTimeout(() => drawCard(effect.value), 300);
-          } else if (effect.type === 'ADD_INFLUENCE' && message.targetId) {
+          } else if (effect.type === 'ADD_INFLUENCE') {
             // Update territory influence
-            const territory = gameStateRef.current!.territories.find(t => t.id === message.targetId);
-            if (territory) {
-              const updatedInfluence = { ...territory.influence };
-              updatedInfluence[player.id] = (updatedInfluence[player.id] || 0) + (effect.value || 1);
-              
-              // Check if player now controls territory
-              let totalInfluence = 0;
-              let controllingPlayer = null;
-              let maxInfluence = 0;
-              
-              Object.entries(updatedInfluence).forEach(([playerId, value]) => {
-                totalInfluence += value;
-                if (value > maxInfluence) {
-                  maxInfluence = value;
-                  controllingPlayer = playerId;
-                }
-              });
-              
-              // Update territory
-              const updatedTerritory = {
-                ...territory,
-                influence: updatedInfluence,
-                controlledBy: controllingPlayer
-              };
-              
-              // Update game state with new territory
-              const territories = gameStateRef.current!.territories.map(t => 
-                t.id === updatedTerritory.id ? updatedTerritory : t
-              );
-              
-              gameStateRef.current = {
-                ...gameStateRef.current!,
-                territories
-              };
-              
-              // Send territory update
-              setTimeout(() => {
-                mockSocketRef.current?.onMessage({
-                  type: MessageType.TERRITORY_UPDATE,
-                  territory: updatedTerritory,
-                  timestamp: Date.now()
+            const targetId = 'targetId' in message ? message.targetId : undefined;
+            
+            if (targetId) {
+              const territory = gameStateRef.current!.territories.find(t => t.id === targetId);
+              if (territory) {
+                const updatedInfluence = { ...territory.influence };
+                updatedInfluence[player.id] = (updatedInfluence[player.id] || 0) + (effect.value || 1);
+                
+                // Check if player now controls territory
+                let totalInfluence = 0;
+                let controllingPlayer = null;
+                let maxInfluence = 0;
+                
+                Object.entries(updatedInfluence).forEach(([playerId, value]) => {
+                  totalInfluence += value;
+                  if (value > maxInfluence) {
+                    maxInfluence = value;
+                    controllingPlayer = playerId;
+                  }
                 });
-              }, 200);
+                
+                // Update territory
+                const updatedTerritory = {
+                  ...territory,
+                  influence: updatedInfluence,
+                  controlledBy: controllingPlayer
+                };
+                
+                // Update game state with new territory
+                const territories = gameStateRef.current!.territories.map(t => 
+                  t.id === updatedTerritory.id ? updatedTerritory : t
+                );
+                
+                gameStateRef.current = {
+                  ...gameStateRef.current!,
+                  territories
+                };
+                
+                // Send territory update
+                setTimeout(() => {
+                  mockSocketRef.current?.onMessage({
+                    type: MessageType.TERRITORY_UPDATE,
+                    territory: updatedTerritory,
+                    timestamp: Date.now()
+                  });
+                }, 200);
+              }
             }
           }
         });

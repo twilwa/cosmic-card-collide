@@ -11,14 +11,19 @@ const Index = () => {
   const { toast } = useToast();
   const { user, signOut, isLoading } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [playAsGuest, setPlayAsGuest] = useState(false);
+  const [playAsGuest, setPlayAsGuest] = useState(true); // Default to guest mode for immediate gameplay
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
 
-  // Show login modal when page loads if user is not logged in or playing as guest
+  // Only show login modal on first visit after a short delay
   useEffect(() => {
-    if (!isLoading && !user && !playAsGuest) {
-      setShowLoginModal(true);
+    if (isFirstVisit && !isLoading && !user) {
+      // Set a short delay before showing the modal to let users see the game first
+      const timer = setTimeout(() => {
+        setIsFirstVisit(false);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [isLoading, user, playAsGuest]);
+  }, [isLoading, user, isFirstVisit]);
 
   const handleShowLoginModal = () => {
     setShowLoginModal(true);
@@ -39,7 +44,7 @@ const Index = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    setPlayAsGuest(false);
+    setPlayAsGuest(true); // Automatically continue as guest after signout
     toast({
       title: "Signed out",
       description: "You've been signed out successfully"
@@ -121,23 +126,7 @@ const Index = () => {
       </header>
       
       <main>
-        {user || playAsGuest ? (
-          <GameBoard />
-        ) : (
-          <div className="flex flex-col items-center justify-center min-h-[80vh] gap-6">
-            <div className="cyber-border p-6 rounded-md glow-corp max-w-lg text-center">
-              <h2 className="text-2xl font-bold mb-4 text-cyber-corp">Welcome to Cosmic Card Collide</h2>
-              <p className="mb-4">A cyberpunk deck-building game where corporations and runners battle for control of the network.</p>
-              <Button 
-                onClick={handleShowLoginModal} 
-                size="lg" 
-                className="bg-cyber-corp hover:bg-cyber-corp/80"
-              >
-                Start Playing
-              </Button>
-            </div>
-          </div>
-        )}
+        <GameBoard />
       </main>
       
       <LoginModal 

@@ -19,17 +19,22 @@ interface GameStore {
   selectedCardId: string | null;
   selectedTerritoryId: string | null;
   
-  // Getters
+  // Actions
+  setGameState: (gameState: GameState) => void;
+  setCardDefinitions: (cardDefinitions: CardDefinition[]) => void;
+  selectCard: (instanceId: string | null) => void;
+  selectTerritory: (territoryId: string | null) => void;
+  handleGameMessage: (message: ServerToClientMessage) => void;
+  
+  // Getters - these are computed properties
   getCardDefinition: (definitionId: string) => CardDefinition | undefined;
   getMyPlayer: () => Player | undefined;
   isMyTurn: () => boolean;
   
-  // Game actions
-  selectCard: (instanceId: string | null) => void;
-  selectTerritory: (territoryId: string | null) => void;
-  
-  // Message handlers
-  handleGameMessage: (message: ServerToClientMessage) => void;
+  // Computed properties - we'll create these as functions to maintain TypeScript support
+  currentPlayer: Player | undefined;
+  isPlayerTurn: boolean;
+  phase: GamePhase;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -39,6 +44,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
   myClientId: 'player-1', // Hardcoded for mock data
   selectedCardId: null,
   selectedTerritoryId: null,
+  
+  // Actions
+  setGameState: (gameState: GameState) => {
+    set({ gameState });
+  },
+  
+  setCardDefinitions: (cardDefinitions: CardDefinition[]) => {
+    const cardDefsMap: { [id: string]: CardDefinition } = {};
+    cardDefinitions.forEach(def => {
+      cardDefsMap[def.id] = def;
+    });
+    set({ cardDefinitions: cardDefsMap });
+  },
+  
+  selectCard: (instanceId: string | null) => {
+    set({ selectedCardId: instanceId });
+  },
+  
+  selectTerritory: (territoryId: string | null) => {
+    set({ selectedTerritoryId: territoryId });
+  },
   
   // Getters
   getCardDefinition: (definitionId: string) => {
@@ -57,13 +83,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return gameState.currentPlayerId === myClientId;
   },
   
-  // Actions
-  selectCard: (instanceId: string | null) => {
-    set({ selectedCardId: instanceId });
+  // Computed properties using getters
+  get currentPlayer() {
+    return get().getMyPlayer();
   },
   
-  selectTerritory: (territoryId: string | null) => {
-    set({ selectedTerritoryId: territoryId });
+  get isPlayerTurn() {
+    return get().isMyTurn();
+  },
+  
+  get phase() {
+    return get().gameState?.phase || GamePhase.WAITING;
   },
   
   // Message handlers
@@ -84,9 +114,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if ('cardDefinitions' in message) {
           console.log('Received card definitions', message.cardDefinitions);
           const cardDefsMap: { [id: string]: CardDefinition } = {};
-          const cardDefs = message.cardDefinitions;
-          
-          cardDefs.forEach(def => {
+          message.cardDefinitions.forEach(def => {
             cardDefsMap[def.id] = def;
           });
           

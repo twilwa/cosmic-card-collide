@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { MessageType, GameState, Territory, CardDefinition, CardInstance, Player, FactionType, ClientToServerMessage, GamePhase } from '@/types/gameTypes';
+import { MessageType, Territory, CardInstance, GamePhase } from '@/types/gameTypes';
 import { useGameStore } from '@/store/gameStore';
 import TerritoryMap from './TerritoryMap';
 import CardComponent from './CardComponent';
@@ -13,14 +13,13 @@ const GameBoard: React.FC = () => {
   const [selectedCard, setSelectedCard] = useState<CardInstance | null>(null);
   const [selectedTerritory, setSelectedTerritory] = useState<Territory | null>(null);
   const { sendMessage, lastMessage, connected } = useWebSocket();
-  const {
-    gameState,
-    setGameState,
-    setCardDefinitions,
-    currentPlayer,
-    isPlayerTurn,
-    phase,
-  } = useGameStore();
+  
+  // Get values and actions from the game store
+  const gameState = useGameStore(state => state.gameState);
+  const handleGameMessage = useGameStore(state => state.handleGameMessage);
+  const currentPlayer = useGameStore(state => state.currentPlayer);
+  const isPlayerTurn = useGameStore(state => state.isPlayerTurn);
+  const phase = useGameStore(state => state.phase);
 
   useEffect(() => {
     if (connected) {
@@ -82,58 +81,8 @@ const GameBoard: React.FC = () => {
   // Process incoming messages
   useEffect(() => {
     if (!lastMessage) return;
-
-    try {
-      switch (lastMessage.type) {
-        case MessageType.GAME_STATE_INIT:
-          setGameState(lastMessage.gameState);
-          break;
-        case MessageType.ALL_CARD_DEFINITIONS:
-          setCardDefinitions(lastMessage.cardDefinitions);
-          break;
-        case MessageType.PLAYER_HAND_UPDATE:
-          if (currentPlayer && lastMessage.playerId === currentPlayer.id) {
-            const updatedPlayer = { ...currentPlayer, hand: lastMessage.hand };
-            const updatedGameState = {
-              ...gameState,
-              players: gameState.players.map(p => 
-                p.id === updatedPlayer.id ? updatedPlayer : p
-              )
-            };
-            setGameState(updatedGameState);
-          }
-          break;
-        case MessageType.TERRITORY_UPDATE:
-          if (gameState) {
-            const updatedGameState = {
-              ...gameState,
-              territories: gameState.territories.map(t => 
-                t.id === lastMessage.territory.id ? lastMessage.territory : t
-              )
-            };
-            setGameState(updatedGameState);
-          }
-          break;
-        case MessageType.CONNECTION_ACK:
-          toast({
-            title: "Connected",
-            description: "Connected to game server"
-          });
-          break;
-        case MessageType.ERROR:
-          toast({
-            title: "Error",
-            description: lastMessage.message || "An error occurred",
-            variant: "destructive"
-          });
-          break;
-        default:
-          console.log('Unhandled message type:', lastMessage.type);
-      }
-    } catch (error) {
-      console.error('Error processing message:', error);
-    }
-  }, [lastMessage, setGameState, setCardDefinitions, gameState, currentPlayer, toast]);
+    handleGameMessage(lastMessage);
+  }, [lastMessage, handleGameMessage]);
 
   // Temporary placeholder content if game state is not yet loaded
   if (!gameState) {
