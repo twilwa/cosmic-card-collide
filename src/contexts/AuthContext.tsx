@@ -30,6 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
         
         if (event === 'SIGNED_IN') {
+          // Fetch player data from database after sign in
+          if (session?.user) {
+            fetchPlayerData(session.user.id);
+          }
+          
           toast({
             title: "Signed in successfully",
             description: `Welcome back, ${session?.user?.email || "User"}!`,
@@ -49,11 +54,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // Fetch player data if user is signed in
+      if (session?.user) {
+        fetchPlayerData(session.user.id);
+      }
+      
       setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, [toast]);
+
+  // Fetch player data from our database
+  const fetchPlayerData = async (userId: string) => {
+    try {
+      // Fetch player profile
+      const { data: playerData, error: playerError } = await supabase
+        .from('players')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (playerError) {
+        console.error('Error fetching player data:', playerError);
+        return;
+      }
+      
+      if (playerData) {
+        console.log('Player data loaded:', playerData);
+        // You could store this in a player context or state if needed
+      }
+      
+      // Fetch player progress
+      const { data: progressData, error: progressError } = await supabase
+        .from('player_progress')
+        .select('*')
+        .eq('player_id', userId)
+        .single();
+        
+      if (progressError) {
+        console.error('Error fetching player progress:', progressError);
+        return;
+      }
+      
+      if (progressData) {
+        console.log('Player progress loaded:', progressData);
+        // You could store this in a player context or state if needed
+      }
+      
+    } catch (error) {
+      console.error('Error in fetchPlayerData:', error);
+    }
+  };
 
   const signIn = async (provider: 'github' | 'discord' | 'twitter' | 'google') => {
     try {

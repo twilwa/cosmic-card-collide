@@ -6,13 +6,34 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogIn, LogOut, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
   const { toast } = useToast();
   const { user, signOut, isLoading } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [playAsGuest, setPlayAsGuest] = useState(true); // Default to guest mode for immediate gameplay
-  const [isFirstVisit, setIsFirstVisit] = useState(false); // Don't auto-show the modal on first visit
+  const [showFirstVisitPrompt, setShowFirstVisitPrompt] = useState(false);
+
+  // Check if this is the first visit
+  useEffect(() => {
+    const hasVisited = localStorage.getItem('hasVisitedBefore');
+    if (!hasVisited && !user) {
+      // Only show prompt if not logged in and first visit
+      setShowFirstVisitPrompt(true);
+      localStorage.setItem('hasVisitedBefore', 'true');
+    }
+  }, [user]);
 
   const handleShowLoginModal = () => {
     setShowLoginModal(true);
@@ -123,6 +144,26 @@ const Index = () => {
         onClose={handleCloseLoginModal} 
         onContinueAsGuest={handleContinueAsGuest} 
       />
+
+      {/* First visit prompt */}
+      <AlertDialog open={showFirstVisitPrompt} onOpenChange={setShowFirstVisitPrompt}>
+        <AlertDialogContent className="cyber-border glow-corp">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-cyber-corp">Welcome to Cosmic Card Collide!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Would you like to sign in to save your progress, or continue as a guest? 
+              Guest progress won't be saved between sessions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleContinueAsGuest}>Continue as Guest</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowFirstVisitPrompt(false);
+              setShowLoginModal(true);
+            }}>Sign In</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

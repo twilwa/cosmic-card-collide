@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { Github, Twitter, MessageSquare } from 'lucide-react';
+import { Github, Twitter, MessageSquare, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface LoginModalProps {
@@ -51,7 +51,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md cyber-border glow-corp">
+      <DialogContent className="sm:max-w-md cyber-border glow-corp max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-cyber-corp text-center text-xl font-bold">
             JOIN THE NETWORK
@@ -61,7 +61,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
+        <div className="flex flex-col gap-4 py-4">
           <Button 
             onClick={handleContinueAsGuest} 
             className="w-full bg-cyber-corp hover:bg-cyber-corp/80" 

@@ -9,7 +9,122 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      game_sessions: {
+        Row: {
+          ended_at: string | null
+          game_data: Json | null
+          id: string
+          player_id: string
+          started_at: string
+          turn_count: number | null
+          winner_id: string | null
+        }
+        Insert: {
+          ended_at?: string | null
+          game_data?: Json | null
+          id?: string
+          player_id: string
+          started_at?: string
+          turn_count?: number | null
+          winner_id?: string | null
+        }
+        Update: {
+          ended_at?: string | null
+          game_data?: Json | null
+          id?: string
+          player_id?: string
+          started_at?: string
+          turn_count?: number | null
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_sessions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_sessions_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_progress: {
+        Row: {
+          cards_collected: string[] | null
+          current_deck: string[] | null
+          experience: number | null
+          id: string
+          last_played_at: string | null
+          level: number | null
+          player_id: string
+          territories_controlled: string[] | null
+        }
+        Insert: {
+          cards_collected?: string[] | null
+          current_deck?: string[] | null
+          experience?: number | null
+          id?: string
+          last_played_at?: string | null
+          level?: number | null
+          player_id: string
+          territories_controlled?: string[] | null
+        }
+        Update: {
+          cards_collected?: string[] | null
+          current_deck?: string[] | null
+          experience?: number | null
+          id?: string
+          last_played_at?: string | null
+          level?: number | null
+          player_id?: string
+          territories_controlled?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_progress_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      players: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          faction: string | null
+          id: string
+          resources: Json | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          faction?: string | null
+          id: string
+          resources?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          faction?: string | null
+          id?: string
+          resources?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
