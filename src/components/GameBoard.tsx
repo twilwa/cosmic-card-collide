@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useGameStore } from '@/store/gameStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { MessageType } from '@/types/gameTypes';
+import { MessageType, CardInstance } from '@/types/gameTypes';
 import TerritoryMap from './TerritoryMap';
 import { Separator } from '@/components/ui/separator';
 import { CircleX, Star } from 'lucide-react';
@@ -29,6 +29,7 @@ const GameBoard: React.FC = () => {
   const handleEndTurn = () => {
     sendMessage({
       type: MessageType.END_TURN,
+      timestamp: Date.now(),
     });
     
     // For mock functionality, simulate a turn change
@@ -36,7 +37,7 @@ const GameBoard: React.FC = () => {
       type: MessageType.TURN_CHANGE,
       timestamp: Date.now(),
       currentPlayerId: 'player-2',
-      turnNumber: (gameState?.turnNumber || 0) + 1
+      turnNumber: gameState?.turnNumber ? gameState.turnNumber + 1 : 1
     });
     
     // Clear selections
@@ -51,6 +52,7 @@ const GameBoard: React.FC = () => {
     
     sendMessage({
       type: MessageType.PLAY_CARD,
+      timestamp: Date.now(),
       cardInstanceId: selectedCardId,
       targetId,
     });
@@ -118,7 +120,8 @@ const GameBoard: React.FC = () => {
     if (!gameState && !connecting && !connected) {
       // This will trigger the mock connection which will send initial game state
       sendMessage({
-        type: MessageType.CONNECTION_ACK
+        type: MessageType.CONNECTION_ACK,
+        timestamp: Date.now()
       });
     }
   }, [gameState, connecting, connected, sendMessage]);

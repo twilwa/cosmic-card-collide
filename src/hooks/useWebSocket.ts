@@ -279,6 +279,22 @@ export const useWebSocket = ({
           }
           
           setLastMessage(mockHandUpdate as ServerToClientMessage);
+          
+          // Start the first turn
+          setTimeout(() => {
+            const mockTurnStart = {
+              type: MessageType.TURN_CHANGE,
+              timestamp: Date.now(),
+              currentPlayerId: 'player-1',
+              turnNumber: 1
+            };
+            
+            if (onMessage) {
+              onMessage(mockTurnStart as ServerToClientMessage);
+            }
+            
+            setLastMessage(mockTurnStart as ServerToClientMessage);
+          }, 1000);
         }, 1000);
       }, 1000);
     }, 1000);
