@@ -1,10 +1,18 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { useGameStore } from '@/store/gameStore';
 import { Territory } from '@/types/gameTypes';
 
-const TerritoryMap: React.FC = () => {
-  const { gameState, selectedTerritoryId, selectTerritory } = useGameStore();
+interface TerritoryMapProps {
+  territories: Territory[];
+  onTerritoryClick: (territory: Territory) => void;
+  selectedTerritory: Territory | null;
+}
+
+const TerritoryMap: React.FC<TerritoryMapProps> = ({ 
+  territories, 
+  onTerritoryClick, 
+  selectedTerritory 
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +33,7 @@ const TerritoryMap: React.FC = () => {
   
   // Render the territory map
   useEffect(() => {
-    if (!canvasRef.current || !gameState) return;
+    if (!canvasRef.current || !territories.length) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -35,7 +43,6 @@ const TerritoryMap: React.FC = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Draw the territories
-    const territories = gameState.territories;
     const hexRadius = Math.min(canvas.width, canvas.height) * 0.1;
     
     // Draw connections first
@@ -103,26 +110,25 @@ const TerritoryMap: React.FC = () => {
       let strokeColor = 'rgba(80, 80, 100, 0.8)';
       
       if (territory.controlledBy) {
-        const player = gameState.players.find(p => p.id === territory.controlledBy);
-        if (player?.faction === 'CORPORATION') {
-          fillColor = 'rgba(0, 195, 255, 0.3)';
-          strokeColor = 'rgba(0, 195, 255, 0.8)';
-        } else if (player?.faction === 'RUNNER') {
-          fillColor = 'rgba(255, 0, 170, 0.3)';
-          strokeColor = 'rgba(255, 0, 170, 0.8)';
-        }
+        // Use different colors for different controlling factions
+        fillColor = territory.controlledBy === 'player-1' 
+          ? 'rgba(0, 195, 255, 0.3)' 
+          : 'rgba(255, 0, 170, 0.3)';
+        strokeColor = territory.controlledBy === 'player-1' 
+          ? 'rgba(0, 195, 255, 0.8)' 
+          : 'rgba(255, 0, 170, 0.8)';
       }
       
-      const isSelected = territory.id === selectedTerritoryId;
+      const isSelected = selectedTerritory && territory.id === selectedTerritory.id;
       
       drawHexagon(posX, posY, hexRadius, fillColor, strokeColor, territory.name, isSelected);
     });
     
-  }, [gameState, dimensions, selectedTerritoryId]);
+  }, [territories, dimensions, selectedTerritory]);
   
   // Handle territory click
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !gameState) return;
+    if (!canvasRef.current || !territories.length) return;
     
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -135,7 +141,6 @@ const TerritoryMap: React.FC = () => {
     
     // Find the clicked territory
     const hexRadius = Math.min(canvas.width, canvas.height) * 0.1;
-    const territories = gameState.territories;
     
     for (const territory of territories) {
       const { x: terrX, y: terrY } = territory.position;
@@ -145,12 +150,7 @@ const TerritoryMap: React.FC = () => {
       // Simple distance check (this could be more precise with proper hexagon collision)
       const distance = Math.sqrt(Math.pow(posX - canvasX, 2) + Math.pow(posY - canvasY, 2));
       if (distance <= hexRadius) {
-        // Toggle selection
-        if (selectedTerritoryId === territory.id) {
-          selectTerritory(null);
-        } else {
-          selectTerritory(territory.id);
-        }
+        onTerritoryClick(territory);
         break;
       }
     }

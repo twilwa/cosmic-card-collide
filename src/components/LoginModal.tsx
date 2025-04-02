@@ -43,6 +43,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
   const handleContinueAsGuest = () => {
     onContinueAsGuest();
     onClose();
+    toast({
+      title: "Playing as guest",
+      description: "Your progress won't be saved between sessions"
+    });
   };
 
   return (
