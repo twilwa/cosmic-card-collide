@@ -92,43 +92,45 @@ export const useWebSocket = () => {
           break;
         
         case MessageType.PLAY_CARD:
-          // Mock response to playing a card
-          setLastMessage({
-            type: MessageType.TERRITORY_UPDATE,
-            territory: {
-              id: message.targetId || 'territory-1',
-              name: message.targetId === 'territory-2' ? 'R&D Facility' : 
-                    message.targetId === 'territory-3' ? 'HQ Servers' : 'Central Server',
-              type: 'server',
-              controlledBy: 'player-1',
-              influence: { 'player-1': 2 },
-              connections: message.targetId === 'territory-2' ? ['territory-1'] :
-                         message.targetId === 'territory-3' ? ['territory-1'] : 
-                         ['territory-2', 'territory-3'],
-              position: { 
-                x: message.targetId === 'territory-2' ? 100 : 
-                   message.targetId === 'territory-3' ? 80 : 50,
-                y: message.targetId === 'territory-2' ? 30 : 
-                   message.targetId === 'territory-3' ? 80 : 50,
-              }
-            },
-            timestamp: Date.now(),
-          });
-          
-          // Also update the player's hand (remove the played card)
-          setTimeout(() => {
+          if (message.type === MessageType.PLAY_CARD) {
+            // Mock response to playing a card
             setLastMessage({
-              type: MessageType.PLAYER_HAND_UPDATE,
-              playerId: 'player-1',
-              hand: [
-                { instanceId: 'card-instance-15', definitionId: 'card-def-5' },
-                { instanceId: 'card-instance-0', definitionId: 'card-def-0' },
-                { instanceId: 'card-instance-11', definitionId: 'card-def-1' },
-                { instanceId: 'card-instance-14', definitionId: 'card-def-4' },
-              ],
+              type: MessageType.TERRITORY_UPDATE,
+              territory: {
+                id: message.targetId || 'territory-1',
+                name: message.targetId === 'territory-2' ? 'R&D Facility' : 
+                      message.targetId === 'territory-3' ? 'HQ Servers' : 'Central Server',
+                type: 'server',
+                controlledBy: 'player-1',
+                influence: { 'player-1': 2 },
+                connections: message.targetId === 'territory-2' ? ['territory-1'] :
+                           message.targetId === 'territory-3' ? ['territory-1'] : 
+                           ['territory-2', 'territory-3'],
+                position: { 
+                  x: message.targetId === 'territory-2' ? 100 : 
+                     message.targetId === 'territory-3' ? 80 : 50,
+                  y: message.targetId === 'territory-2' ? 30 : 
+                     message.targetId === 'territory-3' ? 80 : 50,
+                }
+              },
               timestamp: Date.now(),
             });
-          }, 300);
+            
+            // Also update the player's hand (remove the played card)
+            setTimeout(() => {
+              setLastMessage({
+                type: MessageType.PLAYER_HAND_UPDATE,
+                playerId: 'player-1',
+                hand: [
+                  { instanceId: 'card-instance-15', definitionId: 'card-def-5' },
+                  { instanceId: 'card-instance-0', definitionId: 'card-def-0' },
+                  { instanceId: 'card-instance-11', definitionId: 'card-def-1' },
+                  { instanceId: 'card-instance-14', definitionId: 'card-def-4' },
+                ],
+                timestamp: Date.now(),
+              });
+            }, 300);
+          }
           break;
           
         case MessageType.END_TURN:

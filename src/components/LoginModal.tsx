@@ -137,6 +137,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
               <p className="mt-2">Authenticating...</p>
             </div>
           )}
+          
+          <p className="text-xs text-center text-muted-foreground mt-2">
+            Note: Social login may be unavailable until the app is deployed.
+            <br />
+            Using guest mode is recommended for now.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

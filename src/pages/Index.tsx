@@ -12,18 +12,7 @@ const Index = () => {
   const { user, signOut, isLoading } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [playAsGuest, setPlayAsGuest] = useState(true); // Default to guest mode for immediate gameplay
-  const [isFirstVisit, setIsFirstVisit] = useState(true);
-
-  // Only show login modal on first visit after a short delay
-  useEffect(() => {
-    if (isFirstVisit && !isLoading && !user) {
-      // Set a short delay before showing the modal to let users see the game first
-      const timer = setTimeout(() => {
-        setIsFirstVisit(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, user, isFirstVisit]);
+  const [isFirstVisit, setIsFirstVisit] = useState(false); // Don't auto-show the modal on first visit
 
   const handleShowLoginModal = () => {
     setShowLoginModal(true);
