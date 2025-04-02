@@ -1,14 +1,16 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useGameStore } from '@/store/gameStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { MessageType, CardInstance } from '@/types/gameTypes';
+import { MessageType, CardInstance, GamePhase } from '@/types/gameTypes';
 import TerritoryMap from './TerritoryMap';
 import { Separator } from '@/components/ui/separator';
 import { CircleX, Star } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
 const GameBoard: React.FC = () => {
+  const { toast } = useToast();
   const { 
     gameState, 
     handleGameMessage, 
@@ -16,8 +18,12 @@ const GameBoard: React.FC = () => {
     selectCard,
     selectTerritory,
     selectedCardId,
-    selectedTerritoryId
+    selectedTerritoryId,
+    getMyPlayer,
+    getCardDefinition
   } = useGameStore();
+  
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const { connected, connecting, sendMessage } = useWebSocket({
     url: 'ws://localhost:8080', // This won't be used since we're using mocks
@@ -29,7 +35,6 @@ const GameBoard: React.FC = () => {
   const handleEndTurn = () => {
     sendMessage({
       type: MessageType.END_TURN,
-      timestamp: Date.now(),
     });
     
     // For mock functionality, simulate a turn change
@@ -43,70 +48,99 @@ const GameBoard: React.FC = () => {
     // Clear selections
     selectCard(null);
     selectTerritory(null);
+    toast({
+      title: "Turn ended",
+      description: "Waiting for opponent's turn"
+    });
   };
   
   const handlePlayCard = () => {
     if (!selectedCardId) return;
     
     const targetId = selectedTerritoryId;
+    const myPlayer = getMyPlayer();
+    
+    if (!myPlayer) return;
+    
+    const playedCard = myPlayer.hand.find(c => c.instanceId === selectedCardId);
+    if (!playedCard) return;
+    
+    const cardDef = getCardDefinition(playedCard.definitionId);
+    if (!cardDef) return;
+    
+    // Check if card requires a target and one isn't selected
+    const requiresTarget = cardDef.effects.some(effect => effect.targetRequired);
+    if (requiresTarget && !targetId) {
+      toast({
+        title: "Target required",
+        description: "This card requires a territory target",
+        variant: "destructive"
+      });
+      return;
+    }
     
     sendMessage({
       type: MessageType.PLAY_CARD,
-      timestamp: Date.now(),
       cardInstanceId: selectedCardId,
       targetId,
     });
     
-    // For mock functionality, simulate discarding the card
-    const myPlayer = gameState?.players.find(p => p.id === 'player-1');
-    if (myPlayer) {
-      const playedCard = myPlayer.hand.find(c => c.instanceId === selectedCardId);
-      if (playedCard) {
-        // Update hand
-        const updatedHand = myPlayer.hand.filter(c => c.instanceId !== selectedCardId);
-        handleGameMessage({
-          type: MessageType.PLAYER_HAND_UPDATE,
-          timestamp: Date.now(),
-          playerId: 'player-1',
-          hand: updatedHand
-        });
-        
-        // Update discard
-        const updatedDiscard = [...myPlayer.discard, playedCard];
-        handleGameMessage({
-          type: MessageType.PLAYER_DISCARD_UPDATE,
-          timestamp: Date.now(),
-          playerId: 'player-1',
-          discard: updatedDiscard
-        });
-        
-        // If there was a target territory, update its influence
-        if (targetId) {
-          const territory = gameState?.territories.find(t => t.id === targetId);
-          if (territory) {
-            const updatedTerritory = {
-              ...territory,
-              influence: {
-                ...territory.influence,
-                'player-1': (territory.influence['player-1'] || 0) + 1
-              }
-            };
-            
-            // Update territory control if player has majority influence
-            const totalInfluence = Object.values(updatedTerritory.influence).reduce((sum, val) => sum + val, 0);
-            const playerInfluence = updatedTerritory.influence['player-1'] || 0;
-            
-            if (playerInfluence > totalInfluence / 2) {
-              updatedTerritory.controlledBy = 'player-1';
+    // For mock functionality, simulate playing the card
+    if (playedCard) {
+      // Update hand
+      const updatedHand = myPlayer.hand.filter(c => c.instanceId !== selectedCardId);
+      handleGameMessage({
+        type: MessageType.PLAYER_HAND_UPDATE,
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        hand: updatedHand
+      });
+      
+      // Update discard
+      const updatedDiscard = [...(myPlayer.discard || []), playedCard];
+      handleGameMessage({
+        type: MessageType.PLAYER_DISCARD_UPDATE,
+        timestamp: Date.now(),
+        playerId: 'player-1',
+        discard: updatedDiscard
+      });
+      
+      // If there was a target territory, update its influence
+      if (targetId) {
+        const territory = gameState?.territories.find(t => t.id === targetId);
+        if (territory) {
+          const updatedTerritory = {
+            ...territory,
+            influence: {
+              ...territory.influence,
+              'player-1': (territory.influence['player-1'] || 0) + 1
             }
-            
-            handleGameMessage({
-              type: MessageType.TERRITORY_UPDATE,
-              timestamp: Date.now(),
-              territory: updatedTerritory
-            });
+          };
+          
+          // Update territory control if player has majority influence
+          const totalInfluence = Object.values(updatedTerritory.influence).reduce((sum, val) => sum + val, 0);
+          const playerInfluence = updatedTerritory.influence['player-1'] || 0;
+          
+          if (playerInfluence > totalInfluence / 2) {
+            updatedTerritory.controlledBy = 'player-1';
           }
+          
+          handleGameMessage({
+            type: MessageType.TERRITORY_UPDATE,
+            timestamp: Date.now(),
+            territory: updatedTerritory
+          });
+          
+          toast({
+            title: "Card played",
+            description: `Added influence to ${territory.name}`
+          });
         }
+      } else {
+        toast({
+          title: "Card played",
+          description: cardDef.description
+        });
       }
     }
     
@@ -115,21 +149,23 @@ const GameBoard: React.FC = () => {
     selectTerritory(null);
   };
   
-  // Initialize game on first render if not connected
+  // Initialize game on mount
   useEffect(() => {
     if (!gameState && !connecting && !connected) {
+      setIsInitializing(true);
       // This will trigger the mock connection which will send initial game state
       sendMessage({
         type: MessageType.CONNECTION_ACK,
-        timestamp: Date.now()
       });
+    } else if (gameState && isInitializing) {
+      setIsInitializing(false);
     }
-  }, [gameState, connecting, connected, sendMessage]);
+  }, [gameState, connecting, connected, sendMessage, isInitializing]);
   
   // Loading state
-  if (!gameState) {
+  if (isInitializing || !gameState) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[80vh]">
         <div className="cyber-border p-6 rounded-md glow-corp">
           <h2 className="text-2xl text-center text-primary">Initializing Neural NetLink...</h2>
           <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
@@ -141,11 +177,11 @@ const GameBoard: React.FC = () => {
   }
   
   // Get my player
-  const myPlayer = gameState.players.find(p => p.id === 'player-1');
+  const myPlayer = getMyPlayer();
   const faction = myPlayer?.faction;
   
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-[80vh] p-4">
       <div className="cyber-border p-2 mb-4 rounded-md">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -169,7 +205,7 @@ const GameBoard: React.FC = () => {
             </div>
             <Button 
               variant="outline" 
-              className={`border-none ${isMyTurn() ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}
+              className={`border-none ${isMyTurn() ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
               disabled={!isMyTurn()}
               onClick={handleEndTurn}
             >
@@ -195,9 +231,15 @@ const GameBoard: React.FC = () => {
               <h3 className="text-lg mb-1">Selected Card</h3>
               {selectedCardId ? (
                 <div className="flex items-center justify-between bg-card p-2 rounded-md">
-                  <span>
-                    {myPlayer?.hand.find(c => c.instanceId === selectedCardId)?.instanceId}
-                  </span>
+                  {(() => {
+                    const card = myPlayer?.hand.find(c => c.instanceId === selectedCardId);
+                    const def = card ? getCardDefinition(card.definitionId) : null;
+                    return (
+                      <span>
+                        {def?.name || card?.instanceId || "Unknown Card"}
+                      </span>
+                    );
+                  })()}
                   <button 
                     className="text-destructive hover:text-destructive/80"
                     onClick={() => selectCard(null)}
@@ -232,7 +274,7 @@ const GameBoard: React.FC = () => {
             <Separator className="my-4" />
             
             <Button
-              disabled={!selectedCardId}
+              disabled={!selectedCardId || !isMyTurn()}
               className={`w-full ${faction === 'CORPORATION' ? 'bg-cyber-corp hover:bg-cyber-corp/80' : 'bg-cyber-runner hover:bg-cyber-runner/80'}`}
               onClick={handlePlayCard}
             >
@@ -270,14 +312,13 @@ const GameBoard: React.FC = () => {
   );
 };
 
-interface CardProps {
+// Extract CardComponent to its own component
+const CardComponent: React.FC<{
   instance: CardInstance;
   definition: any;
   isSelected: boolean;
   onSelect: () => void;
-}
-
-const CardComponent: React.FC<CardProps> = ({ instance, definition, isSelected, onSelect }) => {
+}> = ({ instance, definition, isSelected, onSelect }) => {
   const factionClass = definition.faction === 'CORPORATION' ? 'corp' : 'runner';
   const costColorClass = definition.faction === 'CORPORATION' ? 'bg-cyber-corp' : 'bg-cyber-runner';
   
@@ -305,8 +346,9 @@ const CardComponent: React.FC<CardProps> = ({ instance, definition, isSelected, 
   );
 };
 
+// Extract HandCards to its own component
 const HandCards: React.FC = () => {
-  const { gameState, cardDefinitions, getMyPlayer, selectedCardId, selectCard } = useGameStore();
+  const { getMyPlayer, cardDefinitions, selectedCardId, selectCard } = useGameStore();
   
   const myPlayer = getMyPlayer();
   

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BaseMessage, MessageType, ServerToClientMessage } from '../types/gameTypes';
+import { BaseMessage, MessageType, ServerToClientMessage, GamePhase } from '../types/gameTypes';
 
 interface UseWebSocketOptions {
   url: string;
@@ -54,7 +54,6 @@ export const useWebSocket = ({
           const mockResponse: ServerToClientMessage = {
             type: MessageType.CONNECTION_ACK,
             timestamp: Date.now(),
-            success: true,
           };
           
           if (onMessage) {
@@ -83,10 +82,11 @@ export const useWebSocket = ({
         timestamp: Date.now(),
         gameState: {
           gameId: 'mock-game-1',
-          phase: 'WAITING',
+          phase: GamePhase.WAITING,
           players: [
             {
               id: 'player-1',
+              name: 'Player 1',
               status: 'CONNECTED',
               faction: 'CORPORATION',
               resources: { credits: 5, dataTokens: 3 },
@@ -102,6 +102,7 @@ export const useWebSocket = ({
             {
               id: 'territory-1',
               name: 'Central Server',
+              type: 'server',
               controlledBy: null,
               influence: {},
               connections: ['territory-2', 'territory-3'],
@@ -110,18 +111,20 @@ export const useWebSocket = ({
             {
               id: 'territory-2',
               name: 'R&D Facility',
+              type: 'server',
               controlledBy: null,
               influence: {},
               connections: ['territory-1'],
-              position: { x: 100, y: 30 },
+              position: { x: 25, y: 30 },
             },
             {
               id: 'territory-3',
               name: 'HQ Servers',
+              type: 'server',
               controlledBy: null,
               influence: {},
               connections: ['territory-1'],
-              position: { x: 80, y: 80 },
+              position: { x: 75, y: 70 },
             },
           ],
           turnNumber: 0,
@@ -136,123 +139,123 @@ export const useWebSocket = ({
       setLastMessage(mockGameStateInit as ServerToClientMessage);
       
       // Send card definitions
-      const mockCardDefinitions = {
-        type: MessageType.ALL_CARD_DEFINITIONS,
-        timestamp: Date.now(),
-        cardDefinitions: [
-          {
-            id: 'card-def-0',
-            name: 'Neural Katana',
-            cost: 3,
-            type: 'ICE',
-            faction: 'CORPORATION',
-            description: 'End the runner\'s turn if they don\'t have a breaker.',
-            effects: [{ type: 'GAIN_RESOURCES', value: 1 }],
-          },
-          {
-            id: 'card-def-1',
-            name: 'Hedge Fund',
-            cost: 2,
-            type: 'OPERATION',
-            faction: 'CORPORATION',
-            description: 'Gain 5 credits.',
-            effects: [{ type: 'GAIN_RESOURCES', value: 5 }],
-          },
-          {
-            id: 'card-def-2',
-            name: 'Corroder',
-            cost: 2,
-            type: 'PROGRAM',
-            faction: 'RUNNER',
-            description: 'Break barrier subroutines.',
-            effects: [{ type: 'DRAW_CARD', value: 1 }],
-          },
-          {
-            id: 'card-def-3',
-            name: 'Sure Gamble',
-            cost: 3,
-            type: 'EVENT',
-            faction: 'RUNNER',
-            description: 'Gain 4 credits.',
-            effects: [{ type: 'GAIN_RESOURCES', value: 4 }],
-          },
-          {
-            id: 'card-def-4',
-            name: 'Data Terminal',
-            cost: 1,
-            type: 'HARDWARE',
-            faction: 'RUNNER',
-            description: 'Add 1 influence to a territory.',
-            effects: [{ 
-              type: 'ADD_INFLUENCE', 
-              value: 1,
-              targetRequired: true 
-            }],
-          },
-          {
-            id: 'card-def-5',
-            name: 'Proxy Server',
-            cost: 2,
-            type: 'ICE',
-            faction: 'CORPORATION',
-            description: 'Add 1 influence to a territory.',
-            effects: [{ 
-              type: 'ADD_INFLUENCE', 
-              value: 1,
-              targetRequired: true 
-            }],
-          },
-          {
-            id: 'card-def-6',
-            name: 'Memory Chip',
-            cost: 1,
-            type: 'HARDWARE',
-            faction: 'RUNNER',
-            description: 'Draw 2 cards.',
-            effects: [{ type: 'DRAW_CARD', value: 2 }],
-          },
-          {
-            id: 'card-def-7',
-            name: 'Corporate Restructuring',
-            cost: 4,
-            type: 'OPERATION',
-            faction: 'CORPORATION',
-            description: 'Gain 3 credits and draw 1 card.',
-            effects: [
-              { type: 'GAIN_RESOURCES', value: 3 },
-              { type: 'DRAW_CARD', value: 1 }
-            ],
-          },
-          {
-            id: 'card-def-8',
-            name: 'System Outage',
-            cost: 3,
-            type: 'EVENT',
-            faction: 'RUNNER',
-            description: 'Add 2 influence to a territory.',
-            effects: [{ 
-              type: 'ADD_INFLUENCE', 
-              value: 2,
-              targetRequired: true 
-            }],
-          },
-          {
-            id: 'card-def-9',
-            name: 'Defensive Matrix',
-            cost: 3,
-            type: 'ICE',
-            faction: 'CORPORATION',
-            description: 'Add 2 influence to a territory.',
-            effects: [{ 
-              type: 'ADD_INFLUENCE', 
-              value: 2,
-              targetRequired: true
-            }],
-          },
-        ]
-      };
-      
       setTimeout(() => {
+        const mockCardDefinitions = {
+          type: MessageType.ALL_CARD_DEFINITIONS,
+          timestamp: Date.now(),
+          cardDefinitions: [
+            {
+              id: 'card-def-0',
+              name: 'Neural Katana',
+              cost: 3,
+              type: 'ICE',
+              faction: 'CORPORATION',
+              description: 'End the runner\'s turn if they don\'t have a breaker.',
+              effects: [{ type: 'GAIN_RESOURCES', value: 1 }],
+            },
+            {
+              id: 'card-def-1',
+              name: 'Hedge Fund',
+              cost: 2,
+              type: 'OPERATION',
+              faction: 'CORPORATION',
+              description: 'Gain 5 credits.',
+              effects: [{ type: 'GAIN_RESOURCES', value: 5 }],
+            },
+            {
+              id: 'card-def-2',
+              name: 'Corroder',
+              cost: 2,
+              type: 'PROGRAM',
+              faction: 'RUNNER',
+              description: 'Break barrier subroutines.',
+              effects: [{ type: 'DRAW_CARD', value: 1 }],
+            },
+            {
+              id: 'card-def-3',
+              name: 'Sure Gamble',
+              cost: 3,
+              type: 'EVENT',
+              faction: 'RUNNER',
+              description: 'Gain 4 credits.',
+              effects: [{ type: 'GAIN_RESOURCES', value: 4 }],
+            },
+            {
+              id: 'card-def-4',
+              name: 'Data Terminal',
+              cost: 1,
+              type: 'HARDWARE',
+              faction: 'RUNNER',
+              description: 'Add 1 influence to a territory.',
+              effects: [{ 
+                type: 'ADD_INFLUENCE', 
+                value: 1,
+                targetRequired: true 
+              }],
+            },
+            {
+              id: 'card-def-5',
+              name: 'Proxy Server',
+              cost: 2,
+              type: 'ICE',
+              faction: 'CORPORATION',
+              description: 'Add 1 influence to a territory.',
+              effects: [{ 
+                type: 'ADD_INFLUENCE', 
+                value: 1,
+                targetRequired: true 
+              }],
+            },
+            {
+              id: 'card-def-6',
+              name: 'Memory Chip',
+              cost: 1,
+              type: 'HARDWARE',
+              faction: 'RUNNER',
+              description: 'Draw 2 cards.',
+              effects: [{ type: 'DRAW_CARD', value: 2 }],
+            },
+            {
+              id: 'card-def-7',
+              name: 'Corporate Restructuring',
+              cost: 4,
+              type: 'OPERATION',
+              faction: 'CORPORATION',
+              description: 'Gain 3 credits and draw 1 card.',
+              effects: [
+                { type: 'GAIN_RESOURCES', value: 3 },
+                { type: 'DRAW_CARD', value: 1 }
+              ],
+            },
+            {
+              id: 'card-def-8',
+              name: 'System Outage',
+              cost: 3,
+              type: 'EVENT',
+              faction: 'RUNNER',
+              description: 'Add 2 influence to a territory.',
+              effects: [{ 
+                type: 'ADD_INFLUENCE', 
+                value: 2,
+                targetRequired: true 
+              }],
+            },
+            {
+              id: 'card-def-9',
+              name: 'Defensive Matrix',
+              cost: 3,
+              type: 'ICE',
+              faction: 'CORPORATION',
+              description: 'Add 2 influence to a territory.',
+              effects: [{ 
+                type: 'ADD_INFLUENCE', 
+                value: 2,
+                targetRequired: true
+              }],
+            },
+          ]
+        };
+        
         if (onMessage) {
           onMessage(mockCardDefinitions as ServerToClientMessage);
         }
@@ -294,10 +297,10 @@ export const useWebSocket = ({
             }
             
             setLastMessage(mockTurnStart as ServerToClientMessage);
-          }, 1000);
-        }, 1000);
-      }, 1000);
-    }, 1000);
+          }, 500);
+        }, 500);
+      }, 500);
+    }, 500);
     
     return mockSocket as unknown as WebSocket;
   }, [onMessage, onOpen, onClose]);
@@ -311,7 +314,7 @@ export const useWebSocket = ({
     
     try {
       // For now we'll use the mock implementation
-      socketRef.current = mockWebSocket() as WebSocket;
+      socketRef.current = mockWebSocket();
     } catch (err) {
       console.error('WebSocket connection error:', err);
       setConnecting(false);
@@ -328,7 +331,7 @@ export const useWebSocket = ({
   
   // Send message through WebSocket
   const sendMessage = useCallback(<T extends BaseMessage>(message: T) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+    if (!socketRef.current || (socketRef.current as any).readyState !== WebSocket.OPEN) {
       console.error('WebSocket is not connected');
       return;
     }
@@ -339,7 +342,7 @@ export const useWebSocket = ({
     };
     
     try {
-      socketRef.current.send(JSON.stringify(messageWithTimestamp));
+      (socketRef.current as any).send(JSON.stringify(messageWithTimestamp));
     } catch (err) {
       console.error('Error sending message:', err);
     }
@@ -356,7 +359,7 @@ export const useWebSocket = ({
       }
       
       if (socketRef.current) {
-        socketRef.current.close();
+        (socketRef.current as any).close();
         socketRef.current = null;
       }
     };

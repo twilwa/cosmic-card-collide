@@ -1,6 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { Territory } from '@/types/gameTypes';
 
 const TerritoryMap: React.FC = () => {
   const { gameState, selectedTerritoryId, selectTerritory } = useGameStore();

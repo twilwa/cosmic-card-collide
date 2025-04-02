@@ -5,11 +5,10 @@ import {
   CardDefinition, 
   CardInstance, 
   Territory, 
-  PlayerState,
+  Player,
   MessageType,
   ServerToClientMessage,
   GamePhase,
-  FactionType
 } from '../types/gameTypes';
 
 interface GameStore {
@@ -22,7 +21,7 @@ interface GameStore {
   
   // Getters
   getCardDefinition: (definitionId: string) => CardDefinition | undefined;
-  getMyPlayer: () => PlayerState | undefined;
+  getMyPlayer: () => Player | undefined;
   isMyTurn: () => boolean;
   
   // Game actions
@@ -77,7 +76,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       case MessageType.GAME_STATE_INIT:
         if ('gameState' in message) {
           console.log('Game state initialized', message.gameState);
-          set({ gameState: message.gameState as unknown as GameState });
+          set({ gameState: message.gameState });
         }
         break;
         
@@ -85,7 +84,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if ('cardDefinitions' in message) {
           console.log('Received card definitions', message.cardDefinitions);
           const cardDefsMap: { [id: string]: CardDefinition } = {};
-          const cardDefs = message.cardDefinitions as CardDefinition[];
+          const cardDefs = message.cardDefinitions;
           
           cardDefs.forEach(def => {
             cardDefsMap[def.id] = def;
@@ -106,7 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               if (player.id === message.playerId) {
                 return {
                   ...player,
-                  hand: message.hand as CardInstance[]
+                  hand: message.hand
                 };
               }
               return player;
@@ -134,8 +133,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
               ...state,
               gameState: {
                 ...state.gameState,
-                currentPlayerId: message.currentPlayerId as string,
-                turnNumber: message.turnNumber as number,
+                currentPlayerId: message.currentPlayerId,
+                turnNumber: message.turnNumber,
                 phase: GamePhase.TURN_BASED
               }
             };
@@ -154,7 +153,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               if (player.id === message.playerId) {
                 return {
                   ...player,
-                  resources: message.resources as PlayerState['resources']
+                  resources: message.resources
                 };
               }
               return player;
@@ -178,7 +177,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set(state => {
             if (!state.gameState) return state;
             
-            const territory = message.territory as Territory;
+            const territory = message.territory;
             const updatedTerritories = state.gameState.territories.map(t => {
               if (t.id === territory.id) {
                 return territory;
@@ -191,6 +190,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
               gameState: {
                 ...state.gameState,
                 territories: updatedTerritories
+              }
+            };
+          });
+        }
+        break;
+        
+      case MessageType.PLAYER_DISCARD_UPDATE:
+        if ('playerId' in message && 'discard' in message) {
+          console.log('Player discard updated', message.playerId, message.discard);
+          
+          set(state => {
+            if (!state.gameState) return state;
+            
+            const updatedPlayers = state.gameState.players.map(player => {
+              if (player.id === message.playerId) {
+                return {
+                  ...player,
+                  discard: message.discard
+                };
+              }
+              return player;
+            });
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                players: updatedPlayers
               }
             };
           });

@@ -5,38 +5,40 @@
  
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
     
-    --card: 222.2 84% 6.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
  
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
  
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
  
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
  
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
  
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
  
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
- 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    
-    --cyber-corp: 195 100% 45%;
-    --cyber-runner: 345 100% 54%;
+    --destructive-foreground: 0 0% 98%;
 
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+ 
     --radius: 0.5rem;
+    
+    /* Cyberpunk colors */
+    --cyber: 240 60% 15%;
+    --cyber-corp: 196 100% 50%;
+    --cyber-runner: 326 100% 50%;
   }
 }
  
@@ -46,79 +48,83 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 /* Cyberpunk styling */
 .cyber-border {
-  position: relative;
-  border: 1px solid;
-  border-image-slice: 1;
-  border-image-source: linear-gradient(to right, rgba(var(--cyber-corp), 0.5), rgba(var(--cyber-runner), 0.5));
-  background-color: rgba(0, 0, 0, 0.7);
-  box-shadow: 0 0 10px rgba(var(--cyber-corp), 0.3), 0 0 15px rgba(var(--cyber-runner), 0.3);
+  @apply border-2 border-gray-700 relative overflow-hidden;
+  box-shadow: 0 0 5px rgba(0, 195, 255, 0.5), 0 0 10px rgba(0, 195, 255, 0.2);
 }
 
 .glow-corp {
-  box-shadow: 0 0 15px rgba(var(--cyber-corp), 0.5);
-  border-image-source: linear-gradient(to right, rgba(var(--cyber-corp), 0.8), rgba(var(--cyber-corp), 0.3));
+  box-shadow: 0 0 5px rgba(0, 195, 255, 0.5), 0 0 10px rgba(0, 195, 255, 0.2);
 }
 
 .glow-runner {
-  box-shadow: 0 0 15px rgba(var(--cyber-runner), 0.5);
-  border-image-source: linear-gradient(to right, rgba(var(--cyber-runner), 0.8), rgba(var(--cyber-runner), 0.3));
+  box-shadow: 0 0 5px rgba(255, 0, 170, 0.5), 0 0 10px rgba(255, 0, 170, 0.2);
 }
 
 .text-cyber-corp {
-  color: rgb(var(--cyber-corp));
-  text-shadow: 0 0 5px rgba(var(--cyber-corp), 0.7);
+  color: rgb(0, 195, 255);
 }
 
 .text-cyber-runner {
-  color: rgb(var(--cyber-runner));
-  text-shadow: 0 0 5px rgba(var(--cyber-runner), 0.7);
+  color: rgb(255, 0, 170);
+}
+
+.bg-cyber-corp {
+  background-color: rgb(0, 195, 255);
+}
+
+.bg-cyber-runner {
+  background-color: rgb(255, 0, 170);
+}
+
+.bg-cyber {
+  background-color: rgb(20, 25, 45);
 }
 
 /* Card styling */
 .card-container {
   perspective: 1000px;
-  height: 280px;
   width: 100%;
+  height: 250px;
 }
 
 .card {
-  position: relative;
-  height: 100%;
   width: 100%;
-  background-color: rgb(20, 20, 25);
-  border-radius: 8px;
-  padding: 12px;
+  height: 100%;
+  position: relative;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  border: 2px solid;
+  background-color: rgb(15, 20, 30);
+  padding: 10px;
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
 }
 
 .card.corp {
-  border: 1px solid rgba(var(--cyber-corp), 0.8);
-  box-shadow: 0 0 8px rgba(var(--cyber-corp), 0.3);
+  border-color: rgb(0, 195, 255);
+  box-shadow: 0 0 5px rgba(0, 195, 255, 0.5);
 }
 
 .card.runner {
-  border: 1px solid rgba(var(--cyber-runner), 0.8);
-  box-shadow: 0 0 8px rgba(var(--cyber-runner), 0.3);
+  border-color: rgb(255, 0, 170);
+  box-shadow: 0 0 5px rgba(255, 0, 170, 0.5);
 }
 
 .card-cost {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 24px;
-  height: 24px;
+  top: 5px;
+  left: 5px;
+  width: 25px;
+  height: 25px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -129,26 +135,10 @@
 
 .card-type {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  color: white;
-}
-
-.bg-cyber-corp {
-  background-color: rgb(var(--cyber-corp));
-}
-
-.bg-cyber-corp\/20 {
-  background-color: rgba(var(--cyber-corp), 0.2);
-}
-
-.bg-cyber-runner {
-  background-color: rgb(var(--cyber-runner));
-}
-
-.bg-cyber-runner\/20 {
-  background-color: rgba(var(--cyber-runner), 0.2);
+  top: 5px;
+  right: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
 }

@@ -1,3 +1,4 @@
+
 export interface CardDefinition {
   id: string;
   name: string;
@@ -23,7 +24,12 @@ export interface Player {
   };
   hand: CardInstance[];
   discard: CardInstance[];
+  status?: string;
+  deck?: CardInstance[];
 }
+
+// Alias PlayerState to Player for compatibility
+export type PlayerState = Player;
 
 export interface Territory {
   id: string;
@@ -33,14 +39,31 @@ export interface Territory {
     [playerId: string]: number;
   };
   controlledBy: string | null;
+  connections: string[];
+  position: {
+    x: number;
+    y: number;
+  };
 }
 
 export interface GameState {
+  gameId?: string;
   players: Player[];
   territories: Territory[];
   turnNumber: number;
-  currentPlayerId: string;
-  phase: string;
+  currentPlayerId: string | null;
+  phase: GamePhase;
+}
+
+export enum GamePhase {
+  WAITING = 'WAITING',
+  TURN_BASED = 'TURN_BASED',
+  GAME_OVER = 'GAME_OVER'
+}
+
+export enum FactionType {
+  CORPORATION = 'CORPORATION',
+  RUNNER = 'RUNNER'
 }
 
 export enum MessageType {
@@ -51,12 +74,17 @@ export enum MessageType {
   PLAYER_DISCARD_UPDATE = 'PLAYER_DISCARD_UPDATE',
   TERRITORY_UPDATE = 'TERRITORY_UPDATE',
   PLAY_CARD = 'PLAY_CARD',
-  END_TURN = 'END_TURN'
+  END_TURN = 'END_TURN',
+  // Add the missing message types
+  GAME_STATE_INIT = 'GAME_STATE_INIT',
+  ALL_CARD_DEFINITIONS = 'ALL_CARD_DEFINITIONS',
+  PLAYER_RESOURCE_UPDATE = 'PLAYER_RESOURCE_UPDATE'
 }
 
 export interface BaseMessage {
   type: MessageType;
   timestamp: number;
+  success?: boolean;
 }
 
 export interface TurnChangeMessage extends BaseMessage {
@@ -92,8 +120,32 @@ export interface EndTurnMessage extends BaseMessage {
   type: MessageType.END_TURN;
 }
 
+export interface GameStateInitMessage extends BaseMessage {
+  type: MessageType.GAME_STATE_INIT;
+  gameState: GameState;
+}
+
+export interface AllCardDefinitionsMessage extends BaseMessage {
+  type: MessageType.ALL_CARD_DEFINITIONS;
+  cardDefinitions: CardDefinition[];
+}
+
+export interface PlayerResourceUpdateMessage extends BaseMessage {
+  type: MessageType.PLAYER_RESOURCE_UPDATE;
+  playerId: string;
+  resources: Player['resources'];
+}
+
 // Union type for all client-to-server messages
 export type ClientToServerMessage = PlayCardMessage | EndTurnMessage | BaseMessage;
 
 // Union type for all server-to-client messages
-export type ServerToClientMessage = TurnChangeMessage | PlayerHandUpdateMessage | PlayerDiscardUpdateMessage | TerritoryUpdateMessage | BaseMessage;
+export type ServerToClientMessage = 
+  | TurnChangeMessage 
+  | PlayerHandUpdateMessage 
+  | PlayerDiscardUpdateMessage 
+  | TerritoryUpdateMessage 
+  | GameStateInitMessage 
+  | AllCardDefinitionsMessage
+  | PlayerResourceUpdateMessage
+  | BaseMessage;
