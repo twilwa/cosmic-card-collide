@@ -1,0 +1,108 @@
+[
+	{
+		"id": "CORP_OP_001",
+		"name": "Hedge Fund",
+		"type": "OVERWORLD",
+		"subType": "OPERATION",
+		"faction": "NEUTRAL",
+		"cost": 5,
+		"targetType": null,
+		"effectDefinition": [
+			{
+				"effect": "GAIN_RESOURCES",
+				"resource": "credits",
+				"amount": 9
+			}
+		],
+		"description": "Gain 9 [Credits].",
+		"flavorText": "Liquid assets."
+	},
+	{
+		"id": "CORP_ICE_001",
+		"name": "Wall of Static",
+		"type": "SCENARIO",
+		"subType": "ICE",
+		"faction": "NEUTRAL",
+		"cost": 3,
+		"targetType": null,
+		"effectDefinition": [
+			{
+				"effect": "ICE_BARRIER", // Placeholder effect type for ICE stats/behavior
+				"strength": 1,
+				"subroutines": [
+					{
+						"effect": "END_THE_RUN"
+					} // Placeholder subroutine effect
+				]
+			}
+		],
+		"description": "Barrier - Strength 1. [Subroutine] End the run.",
+		"flavorText": "A solid digital construct."
+	},
+	{
+		"id": "RUNNER_EV_001",
+		"name": "Sure Gamble",
+		"type": "OVERWORLD",
+		"subType": "EVENT",
+		"faction": "NEUTRAL",
+		"cost": 0,
+		"targetType": null,
+		"effectDefinition": [
+			{
+				"effect": "GAIN_RESOURCES",
+				"resource": "credits",
+				"amount": 4
+			}
+		],
+		"description": "Gain 4 [Credits].",
+		"flavorText": "Always bet on yourself."
+	},
+	{
+		"id": "RUNNER_PROG_001",
+		"name": "Corroder",
+		"type": "SCENARIO",
+		"subType": "PROGRAM",
+		"faction": "RUNNER", // Example specific faction
+		"cost": 2,
+		"targetType": null,
+		"effectDefinition": [
+			{
+				"effect": "ICEBREAKER", // Placeholder
+				"type": "FRACTER",
+				"strength": 1,
+				"abilities": [
+					{
+						"cost": 1,
+						"effect": "BREAK_SUBROUTINE",
+						"iceType": "BARRIER"
+					},
+					{
+						"cost": 1,
+						"effect": "INCREASE_STRENGTH",
+						"value": 1
+					}
+				]
+			}
+		],
+		"description": "Fracter - Strength 1. 1[Credit]: Break barrier subroutine. 1[Credit]: +1 Strength.",
+		"flavorText": "Chews through walls like digital termites."
+	},
+	{
+		"id": "CORP_ASSET_001",
+		"name": "PAD Campaign",
+		"type": "OVERWORLD",
+		"subType": "ASSET",
+		"faction": "NEUTRAL",
+		"cost": 2,
+		"targetType": null, // Placed in territory
+		"effectDefinition": [
+			{
+				"effect": "RECURRING_CREDITS",
+				"amount": 1,
+				"trigger": "START_OF_TURN"
+			} // Placeholder structure
+		],
+		"description": "Gain 1 [Credit] when your turn begins.",
+		"flavorText": "Passive advertising dollars."
+	}
+]
