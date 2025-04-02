@@ -1,42 +1,11 @@
-
-// Game Types - Shared between client and server
-
-// Factions
-export enum FactionType {
-  CORPORATION = 'CORPORATION',
-  RUNNER = 'RUNNER',
-}
-
-// Player status
-export enum PlayerStatus {
-  CONNECTED = 'CONNECTED',
-  DISCONNECTED = 'DISCONNECTED',
-  WAITING = 'WAITING',
-}
-
-// Game phases
-export enum GamePhase {
-  WAITING = 'WAITING',
-  PRE_GAME = 'PRE_GAME',
-  TURN_BASED = 'TURN_BASED',
-  GAME_OVER = 'GAME_OVER',
-}
-
-// Card interfaces
-export interface CardEffect {
-  type: 'DRAW_CARD' | 'GAIN_RESOURCES' | 'ADD_INFLUENCE';
-  value: number;
-  targetRequired?: boolean;
-}
-
 export interface CardDefinition {
   id: string;
   name: string;
   cost: number;
-  type: 'ICE' | 'PROGRAM' | 'HARDWARE' | 'RESOURCE' | 'OPERATION' | 'EVENT';
-  faction: FactionType;
+  type: string;
+  faction: 'CORPORATION' | 'RUNNER';
   description: string;
-  effects: CardEffect[];
+  effects: any[];
 }
 
 export interface CardInstance {
@@ -44,84 +13,87 @@ export interface CardInstance {
   definitionId: string;
 }
 
-// Player state
-export interface PlayerState {
+export interface Player {
   id: string;
-  status: PlayerStatus;
-  faction: FactionType;
+  name: string;
+  faction: 'CORPORATION' | 'RUNNER';
   resources: {
     credits: number;
     dataTokens: number;
   };
-  deck: CardInstance[];
   hand: CardInstance[];
   discard: CardInstance[];
 }
 
-// Territory
 export interface Territory {
   id: string;
   name: string;
-  controlledBy: string | null; // Player ID or null
+  type: string;
   influence: {
     [playerId: string]: number;
   };
-  connections: string[]; // IDs of connected territories
-  position: {
-    x: number;
-    y: number;
-  };
+  controlledBy: string | null;
 }
 
-// Game state
 export interface GameState {
-  gameId: string;
-  phase: GamePhase;
-  players: PlayerState[];
+  players: Player[];
   territories: Territory[];
   turnNumber: number;
-  currentPlayerId: string | null;
+  currentPlayerId: string;
+  phase: string;
 }
 
-// WebSocket message types
 export enum MessageType {
-  // Connection messages
   CONNECTION_ACK = 'CONNECTION_ACK',
-  CLIENT_ERROR = 'CLIENT_ERROR',
-  
-  // Game state messages
-  GAME_STATE_INIT = 'GAME_STATE_INIT',
-  ALL_CARD_DEFINITIONS = 'ALL_CARD_DEFINITIONS',
-  
-  // Player actions
-  END_TURN = 'END_TURN',
-  PLAY_CARD = 'PLAY_CARD',
-  SELECT_TERRITORY = 'SELECT_TERRITORY',
-  
-  // Game updates
+  ERROR = 'ERROR',
   TURN_CHANGE = 'TURN_CHANGE',
-  PLAYER_RESOURCE_UPDATE = 'PLAYER_RESOURCE_UPDATE',
   PLAYER_HAND_UPDATE = 'PLAYER_HAND_UPDATE',
-  PLAYER_DECK_UPDATE = 'PLAYER_DECK_UPDATE',
   PLAYER_DISCARD_UPDATE = 'PLAYER_DISCARD_UPDATE',
   TERRITORY_UPDATE = 'TERRITORY_UPDATE',
+  PLAY_CARD = 'PLAY_CARD',
+  END_TURN = 'END_TURN'
 }
 
-// Base message interface
 export interface BaseMessage {
   type: MessageType;
   timestamp: number;
 }
 
-// Client to server message
-export interface ClientToServerMessage extends BaseMessage {
-  clientId?: string;
+export interface TurnChangeMessage extends BaseMessage {
+  type: MessageType.TURN_CHANGE;
+  currentPlayerId: string;
+  turnNumber: number;
 }
 
-// Server to client message
-export interface ServerToClientMessage extends BaseMessage {
-  success?: boolean;
-  error?: string;
+export interface PlayerHandUpdateMessage extends BaseMessage {
+  type: MessageType.PLAYER_HAND_UPDATE;
+  playerId: string;
+  hand: CardInstance[];
 }
 
-// Specific message types will be defined as extensions of these base interfaces
+export interface PlayerDiscardUpdateMessage extends BaseMessage {
+  type: MessageType.PLAYER_DISCARD_UPDATE;
+  playerId: string;
+  discard: CardInstance[];
+}
+
+export interface TerritoryUpdateMessage extends BaseMessage {
+  type: MessageType.TERRITORY_UPDATE;
+  territory: Territory;
+}
+
+export interface PlayCardMessage extends BaseMessage {
+  type: MessageType.PLAY_CARD;
+  cardInstanceId: string;
+  targetId?: string;
+}
+
+export interface EndTurnMessage extends BaseMessage {
+  type: MessageType.END_TURN;
+}
+
+// Union type for all client-to-server messages
+export type ClientToServerMessage = PlayCardMessage | EndTurnMessage | BaseMessage;
+
+// Union type for all server-to-client messages
+export type ServerToClientMessage = TurnChangeMessage | PlayerHandUpdateMessage | PlayerDiscardUpdateMessage | TerritoryUpdateMessage | BaseMessage;
