@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -52,6 +53,13 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				cyber: {
+					DEFAULT: 'hsl(var(--cyber))',
+					foreground: 'hsl(var(--cyber-foreground))',
+					accent: 'hsl(var(--cyber-accent))',
+					corp: 'hsl(var(--cyber-corp))',
+					runner: 'hsl(var(--cyber-runner))',
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -84,11 +92,27 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-glow': {
+					'0%, 100%': { 
+						boxShadow: '0 0 3px 1px var(--cyber-glow-color)',
+						opacity: '0.8'
+					},
+					'50%': { 
+						boxShadow: '0 0 8px 4px var(--cyber-glow-color)', 
+						opacity: '1'
+					},
+				},
+				'scanning-line': {
+					'0%': { transform: 'translateY(-100%)' },
+					'100%': { transform: 'translateY(100%)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+				'scanning-line': 'scanning-line 2s linear infinite'
 			}
 		}
 	},
