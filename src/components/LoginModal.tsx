@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { Github, Twitter, MessageSquare } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -18,16 +19,34 @@ interface LoginModalProps {
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGuest }) => {
-  const { signIn } = useAuth();
+  const { signIn, isLoading } = useAuth();
+  const { toast } = useToast();
 
   const handleSignIn = async (provider: 'github' | 'discord' | 'twitter' | 'google') => {
-    await signIn(provider);
-    onClose();
+    try {
+      toast({
+        title: "Redirecting...",
+        description: `Redirecting to ${provider} for authentication`,
+      });
+      await signIn(provider);
+      // Don't close yet - wait for the redirect
+    } catch (error: any) {
+      console.error(`${provider} sign-in error:`, error);
+      toast({
+        title: "Sign In Error",
+        description: error.message || `Failed to sign in with ${provider}`,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleContinueAsGuest = () => {
     onContinueAsGuest();
     onClose();
+    toast({
+      title: "Playing as guest",
+      description: "Your progress won't be saved"
+    });
   };
 
   return (
@@ -47,6 +66,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
             onClick={() => handleSignIn('github')} 
             className="cyber-border w-full" 
             variant="outline"
+            disabled={isLoading}
           >
             <Github className="mr-2 h-4 w-4" />
             Sign in with GitHub
@@ -56,6 +76,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
             onClick={() => handleSignIn('twitter')} 
             className="cyber-border w-full" 
             variant="outline"
+            disabled={isLoading}
           >
             <Twitter className="mr-2 h-4 w-4" />
             Sign in with Twitter
@@ -65,6 +86,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
             onClick={() => handleSignIn('discord')} 
             className="cyber-border w-full" 
             variant="outline"
+            disabled={isLoading}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
             Sign in with Discord
@@ -74,6 +96,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
             onClick={() => handleSignIn('google')} 
             className="cyber-border w-full" 
             variant="outline"
+            disabled={isLoading}
           >
             <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
               <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
@@ -99,9 +122,19 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGu
             onClick={handleContinueAsGuest} 
             className="w-full" 
             variant="secondary"
+            disabled={isLoading}
           >
             Continue as Guest
           </Button>
+
+          {isLoading && (
+            <div className="text-center text-sm text-muted-foreground">
+              <div className="mt-2 h-1 w-full bg-secondary overflow-hidden rounded">
+                <div className="h-full bg-cyber-corp animate-pulse"></div>
+              </div>
+              <p className="mt-2">Authenticating...</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

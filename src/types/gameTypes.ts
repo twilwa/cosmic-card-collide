@@ -75,7 +75,6 @@ export enum MessageType {
   TERRITORY_UPDATE = 'TERRITORY_UPDATE',
   PLAY_CARD = 'PLAY_CARD',
   END_TURN = 'END_TURN',
-  // Add the missing message types
   GAME_STATE_INIT = 'GAME_STATE_INIT',
   ALL_CARD_DEFINITIONS = 'ALL_CARD_DEFINITIONS',
   PLAYER_RESOURCE_UPDATE = 'PLAYER_RESOURCE_UPDATE'
@@ -85,6 +84,7 @@ export interface BaseMessage {
   type: MessageType;
   timestamp: number;
   success?: boolean;
+  message?: string;
 }
 
 export interface TurnChangeMessage extends BaseMessage {
