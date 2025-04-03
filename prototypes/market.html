@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End of Line - Deckbuilder Prototype</title>
+    <style>
+        body { font-family: sans-serif; display: flex; gap: 20px; padding: 10px; background-color: #f4f4f4; }
+        .column { display: flex; flex-direction: column; gap: 15px; flex: 1; }
+        .area { background-color: #fff; padding: 15px; border-radius: 5px; border: 1px solid #ccc; }
+        .area h3 { margin-top: 0; }
+        .card-list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 10px; }
+        .card-item { border: 1px solid #ddd; padding: 8px; background-color: #f9f9f9; display: flex; justify-content: space-between; align-items: center; border-radius: 3px; }
+        .card-item span { flex-grow: 1; margin-right: 10px; }
+        .card-item button { padding: 3px 8px; cursor: pointer; font-size: 0.9em; }
+        .filters label { display: block; margin-bottom: 5px; }
+        .filters input, .filters select { margin-left: 5px; padding: 4px; }
+        .player-info { margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="column">
+        <div class="area filters">
+            <h3>Territory Configuration (Filters)</h3>
+            <div>
+                <label for="territory-type">Territory Type:</label>
+                <select id="territory-type">
+                    <option value="any">Any</option>
+                    <option value="corporate">Corporate</option>
+                    <option value="fringe">Fringe</option>
+                    <option value="underground">Underground</option>
+                </select>
+            </div>
+            <div>
+                <label for="corp-influence">Corp Influence (%):</label>
+                <input type="number" id="corp-influence" value="50" min="0" max="100">
+            </div>
+             <div>
+                <label for="security-level">Security Level (1-5):</label>
+                <input type="number" id="security-level" value="3" min="1" max="5">
+            </div>
+        </div>
+         <div class="area">
+            <h3>Available Cards (Market)</h3>
+            <div class="card-list" id="market-cards">
+                <!-- Market cards based on filters -->
+            </div>
+        </div>
+    </div>
+
+    <div class="column">
+        <div class="area">
+            <div class="player-info">
+                 <h3>Player Deck</h3>
+                 <div>Credits: <span id="player-credits">20</span></div>
+            </div>
+            <div class="card-list" id="player-deck">
+                <!-- Cards owned by the player -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const allCardData = [
+            // Runner Cards
+            { id: "c1", name: "Backdoor Access", cost: 2, faction: "Criminal", type: "Event", reqs: [{ type: 'max_security', value: 3 }, { type: 'territory_type', value: ['fringe', 'underground']}] },
+            { id: "c2", name: "Bank Job", cost: 1, faction: "Criminal", type: "Event", reqs: [{ type: 'territory_type', value: 'corporate' }, { type: 'min_influence', value: 60 }] },
+            { id: "c3", name: "Ghost Runner", cost: 1, faction: "Criminal", type: "Resource", reqs: [{ type: 'territory_type', value: 'underground' }] },
+            { id: "a1", name: "Virus Implant", cost: 3, faction: "Anarch", type: "Hardware", reqs: [{ type: 'territory_type', value: 'underground' }, { type: 'max_influence', value: 30 }] },
+            { id: "a2", name: "Street Riot", cost: 2, faction: "Anarch", type: "Event", reqs: [{ type: 'max_stability', value: 40 }] }, // Requires low stability, not a direct filter here yet
+            { id: "s1", name: "Tech Workshop", cost: 3, faction: "Shaper", type: "Resource", reqs: [{ type: 'territory_type', value: 'fringe' }] },
+            { id: "s2", name: "Data Folding", cost: 1, faction: "Shaper", type: "Program", reqs: [{ type: 'min_security', value: 2 }] },
+
+            // Corp Cards
+            { id: "w1", name: "Security Grid", cost: 4, faction: "Weyland", type: "Infrastructure", reqs: [{ type: 'territory_type', value: 'corporate' }, { type: 'min_influence', value: 50 }] },
+            { id: "w2", name: "Armored Server", cost: 2, faction: "Weyland", type: "Asset", reqs: [{ type: 'min_security', value: 3 }] },
+            { id: "n1", name: "Surveillance Network", cost: 3, faction: "NBN", type: "Infrastructure", reqs: [{ type: 'territory_type', value: 'fringe' }, { type: 'min_influence', value: 40 }] },
+            { id: "n2", name: "Media Blitz", cost: 2, faction: "NBN", type: "Operation", reqs: [{ type: 'min_population', value: 4 }] }, // Requires high population, not a direct filter
+             { id: "j1", name: "Ambush Protocol", cost: 1, faction: "Jinteki", type: "Asset", reqs: [{ type: 'min_security', value: 2 }, { type: 'max_influence', value: 70 }] }, // Higher sec, but not too much overt control
+             { id: "h1", name: "Bioroid Worker", cost: 2, faction: "Haas-Bioroid", type: "Asset", reqs: [{ type: 'territory_type', value: 'corporate' }] },
+        ];
+
+        let deckbuilderState = {
+            playerCredits: 20,
+            playerCards: [ // Start with a few basic cards
+                { id: "c0", name: "Basic Credit Chip", cost: 0, faction: "Neutral", type: "Resource" },
+                { id: "c0", name: "Basic Credit Chip", cost: 0, faction: "Neutral", type: "Resource" },
+                { id: "a0", name: "Simple Virus", cost: 1, faction: "Neutral", type: "Program" }
+            ],
+            marketFilters: {
+                territoryType: 'any',
+                corpInfluence: 50,
+                securityLevel: 3
+            }
+        };
+
+        const marketEl = document.getElementById('market-cards');
+        const deckEl = document.getElementById('player-deck');
+        const creditsEl = document.getElementById('player-credits');
+
+        // Filter Elements
+        const typeFilter = document.getElementById('territory-type');
+        const influenceFilter = document.getElementById('corp-influence');
+        const securityFilter = document.getElementById('security-level');
+
+        function checkRequirements(cardReqs, filters) {
+            if (!cardReqs) return true; // No requirements, always available
+
+            for (const req of cardReqs) {
+                switch (req.type) {
+                    case 'territory_type':
+                        const types = Array.isArray(req.value) ? req.value : [req.value];
+                        if (filters.territoryType !== 'any' && !types.includes(filters.territoryType)) {
+                            return false;
+                        }
+                        break;
+                    case 'min_influence':
+                        if (filters.corpInfluence < req.value) return false;
+                        break;
+                    case 'max_influence':
+                         if (filters.corpInfluence > req.value) return false;
+                         break;
+                    case 'min_security':
+                        if (filters.securityLevel < req.value) return false;
+                        break;
+                    case 'max_security':
+                        if (filters.securityLevel > req.value) return false;
+                        break;
+                    // Add more requirement types here (stability, population etc.) if needed
+                }
+            }
+            return true; // All requirements met
+        }
+
+        function renderMarket() {
+            marketEl.innerHTML = '';
+            const currentFilters = deckbuilderState.marketFilters;
+
+            allCardData.forEach(card => {
+                // Check if card already in deck (simple check, could allow multiples later)
+                // const alreadyOwned = deckbuilderState.playerCards.some(ownedCard => ownedCard.id === card.id);
+                // if (alreadyOwned) return; // Don't show owned cards in market for now
+
+                if (checkRequirements(card.reqs, currentFilters)) {
+                    const cardItem = document.createElement('div');
+                    cardItem.classList.add('card-item');
+                    cardItem.innerHTML = `
+                        <span>${card.name} (${card.faction}, ${card.type}) - Cost: ${card.cost} Cr</span>
+                        <button data-card-id="${card.id}" data-cost="${card.cost}">Buy</button>
+                    `;
+                     marketEl.appendChild(cardItem);
+                }
+            });
+
+            // Add event listeners to new buy buttons
+            marketEl.querySelectorAll('button').forEach(button => {
+                button.onclick = () => buyCard(button.dataset.cardId, parseInt(button.dataset.cost));
+            });
+        }
+
+        function renderDeck() {
+            deckEl.innerHTML = '';
+            deckbuilderState.playerCards.forEach(card => {
+                const cardItem = document.createElement('div');
+                cardItem.classList.add('card-item');
+                cardItem.innerHTML = `
+                    <span>${card.name} (${card.faction}, ${card.type})</span>
+                    <!-- Add remove button if needed -->
+                `;
+                deckEl.appendChild(cardItem);
+            });
+        }
+
+        function buyCard(cardId, cost) {
+            if (deckbuilderState.playerCredits < cost) {
+                alert("Not enough credits!");
+                return;
+            }
+
+            const cardToBuy = allCardData.find(card => card.id === cardId);
+            if (!cardToBuy) return; // Should not happen
+
+            deckbuilderState.playerCredits -= cost;
+            deckbuilderState.playerCards.push(cardToBuy); // Add to player's deck
+
+            // Re-render everything
+            creditsEl.textContent = deckbuilderState.playerCredits;
+            renderDeck();
+            // Optionally re-render market if cards should be removed upon purchase (depends on rules)
+             // renderMarket();
+             alert(`Bought ${cardToBuy.name}!`);
+        }
+
+        function updateFilters() {
+            deckbuilderState.marketFilters.territoryType = typeFilter.value;
+            deckbuilderState.marketFilters.corpInfluence = parseInt(influenceFilter.value);
+            deckbuilderState.marketFilters.securityLevel = parseInt(securityFilter.value);
+            renderMarket();
+        }
+
+
+        function initializeDeckbuilder() {
+             creditsEl.textContent = deckbuilderState.playerCredits;
+             renderDeck();
+             renderMarket(); // Initial render
+
+             // Add filter listeners
+             typeFilter.onchange = updateFilters;
+             influenceFilter.oninput = updateFilters;
+             securityFilter.oninput = updateFilters;
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeDeckbuilder);
+
+    </script>
+</body>
+</html>

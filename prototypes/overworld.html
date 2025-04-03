@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End of Line - Overworld Prototype</title>
+    <style>
+        body { font-family: sans-serif; display: flex; padding: 10px; gap: 20px; background-color: #f0f0f0; }
+        .game-area { display: flex; flex-direction: column; gap: 15px; }
+        .territory-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background-color: #ccc; padding: 10px; border-radius: 5px; min-width: 300px; }
+        .territory { border: 1px solid #555; padding: 10px; background-color: #fff; border-radius: 3px; text-align: center; }
+        .territory h4 { margin: 0 0 5px 0; }
+        .territory .influence { font-size: 0.9em; color: #333; }
+        .player-area { background-color: #e0e0e0; padding: 15px; border-radius: 5px; }
+        .player-area h3 { margin-top: 0; }
+        .hand { display: flex; flex-wrap: wrap; gap: 5px; min-height: 60px; border: 1px dashed #aaa; padding: 5px; background-color: #f9f9f9; }
+        .card { border: 1px solid black; padding: 8px; background-color: lightblue; cursor: pointer; font-size: 0.8em; min-width: 100px; text-align: center; border-radius: 3px;}
+        .card.corp { background-color: lightcoral; }
+        .card:hover { filter: brightness(0.9); }
+        .info { background-color: #fff; padding: 10px; border-radius: 5px; border: 1px solid #ccc;}
+        button { padding: 5px 10px; cursor: pointer; }
+        .controls button { margin-top: 10px; }
+        .log { height: 100px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; font-size: 0.8em; background: #fff; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="game-area">
+        <h2>Overworld Prototype (Hotseat)</h2>
+        <div class="info">
+            Turn: <span id="turn">1</span> | Phase: <span id="phase">DEPLOYMENT</span> | Active: <span id="active-player">Weyland</span>
+        </div>
+        <div class="territory-map" id="map">
+            <!-- Territories will be added by JS -->
+        </div>
+        <div class="log" id="log">Game Started.<br></div>
+    </div>
+
+    <div class="player-area" id="weyland-area">
+        <h3>Weyland (Corp)</h3>
+        <div>Credits: <span id="weyland-credits">10</span></div>
+        <h4>Hand:</h4>
+        <div class="hand" id="weyland-hand"></div>
+        <div class="controls">
+            <button id="weyland-end-turn" disabled>End Turn</button>
+        </div>
+    </div>
+
+    <div class="player-area" id="criminal-area">
+        <h3>Criminal (Runner)</h3>
+        <div>Credits: <span id="criminal-credits">8</span></div>
+        <h4>Hand:</h4>
+        <div class="hand" id="criminal-hand"></div>
+        <div class="controls">
+            <button id="criminal-end-turn" disabled>End Turn</button>
+        </div>
+    </div>
+
+    <script>
+        const territoriesData = {
+            "downtown": { name: "Downtown", type: "fringe", influence: 50, controlledBy: 'Neutral' },
+            "financial": { name: "Financial", type: "corporate", influence: 80, controlledBy: 'Weyland' },
+            "industrial": { name: "Industrial", type: "corporate", influence: 70, controlledBy: 'Weyland' },
+            "residential": { name: "Residential", type: "fringe", influence: 30, controlledBy: 'Neutral' },
+            "black_market": { name: "Black Market", type: "underground", influence: 15, controlledBy: 'Criminal' },
+        };
+
+        const cardDatabase = [
+            // Weyland Cards
+            { id: "w1", name: "Build Infrastructure", faction: "Weyland", cost: 3, type: "Operation", effect: (player) => {
+                const target = prompt(`Target territory ID to increase influence by 10 (e.g., downtown):`);
+                if (target && gameState.territories[target]) {
+                    gameState.territories[target].influence = Math.min(100, gameState.territories[target].influence + 10);
+                    logMessage(`${player.name} increased influence in ${gameState.territories[target].name}.`);
+                    return true; // Indicate success
+                }
+                 logMessage(`Invalid target.`); return false; } },
+            { id: "w2", name: "Security Patrol", faction: "Weyland", cost: 2, type: "Operation", effect: (player) => {
+                const target = prompt(`Target territory ID to increase influence by 5 (e.g., downtown):`);
+                 if (target && gameState.territories[target]) {
+                    gameState.territories[target].influence = Math.min(100, gameState.territories[target].influence + 5);
+                    logMessage(`${player.name} patrolled ${gameState.territories[target].name}.`);
+                    return true;
+                 }
+                 logMessage(`Invalid target.`); return false; } },
+            { id: "w3", name: "Resource Extraction", faction: "Weyland", cost: 0, type: "Operation", effect: (player) => { player.credits += 3; logMessage(`${player.name} gained 3 Credits.`); return true; } },
+
+            // Criminal Cards
+            { id: "c1", name: "Establish Network", faction: "Criminal", cost: 3, type: "Event", effect: (player) => {
+                const target = prompt(`Target territory ID to decrease influence by 10 (e.g., downtown):`);
+                 if (target && gameState.territories[target]) {
+                    gameState.territories[target].influence = Math.max(0, gameState.territories[target].influence - 10);
+                    logMessage(`${player.name} decreased influence in ${gameState.territories[target].name}.`);
+                    return true;
+                 }
+                 logMessage(`Invalid target.`); return false; } },
+            { id: "c2", name: "Smash and Grab", faction: "Criminal", cost: 1, type: "Event", effect: (player) => { player.credits += 4; logMessage(`${player.name} gained 4 Credits.`); return true; } },
+            { id: "c3", name: "Street Connections", faction: "Criminal", cost: 2, type: "Resource", effect: (player) => {
+                const target = prompt(`Target territory ID to decrease influence by 5 (e.g., downtown):`);
+                 if (target && gameState.territories[target]) {
+                     gameState.territories[target].influence = Math.max(0, gameState.territories[target].influence - 5);
+                     logMessage(`${player.name} used connections in ${gameState.territories[target].name}.`);
+                     return true; // Simple effect for prototype
+                 }
+                 logMessage(`Invalid target.`); return false; } },
+        ];
+
+        let gameState = {
+            turn: 1,
+            phase: "DEPLOYMENT", // DEPLOYMENT, RESOLUTION
+            activePlayer: "Weyland",
+            territories: JSON.parse(JSON.stringify(territoriesData)), // Deep copy
+            players: {
+                "Weyland": { name: "Weyland", credits: 10, hand: [], deck: ["w1", "w2", "w3", "w1", "w2", "w3"] },
+                "Criminal": { name: "Criminal", credits: 8, hand: [], deck: ["c1", "c2", "c3", "c1", "c2", "c3"] }
+            },
+            actionsTaken: 0,
+            maxActions: 2, // Simple action limit per turn
+        };
+
+        const mapEl = document.getElementById('map');
+        const logEl = document.getElementById('log');
+
+        function logMessage(message) {
+            logEl.innerHTML += message + "<br>";
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        function drawCard(player) {
+            if (player.deck.length === 0) {
+                // Simple reshuffle for prototype if needed, or just stop drawing
+                logMessage(`${player.name} deck empty!`);
+                return;
+            }
+            const cardId = player.deck.pop();
+            const card = cardDatabase.find(c => c.id === cardId);
+            if (card) {
+                player.hand.push(card);
+            }
+        }
+
+        function dealHand(player, numCards) {
+            for (let i = 0; i < numCards; i++) {
+                drawCard(player);
+            }
+        }
+
+         function playCard(cardId, player) {
+             if (player.name !== gameState.activePlayer) {
+                 logMessage("Not your turn!");
+                 return;
+             }
+             if(gameState.actionsTaken >= gameState.maxActions) {
+                 logMessage("No actions left this turn.");
+                 return;
+             }
+
+             const cardIndex = player.hand.findIndex(c => c.id === cardId);
+             if (cardIndex === -1) {
+                 logMessage("Card not in hand!");
+                 return;
+             }
+             const card = player.hand[cardIndex];
+
+             if (player.credits < card.cost) {
+                 logMessage(`Not enough credits to play ${card.name} (Cost: ${card.cost})`);
+                 return;
+             }
+
+             logMessage(`${player.name} plays ${card.name} (Cost: ${card.cost})`);
+             player.credits -= card.cost;
+
+             // Execute effect
+             const success = card.effect(player);
+
+             if (success) {
+                 // Remove card from hand (simple discard)
+                 player.hand.splice(cardIndex, 1);
+                 gameState.actionsTaken++;
+                 logMessage(`Actions left: ${gameState.maxActions - gameState.actionsTaken}`);
+             } else {
+                 // Refund cost if effect failed
+                 player.credits += card.cost;
+                 logMessage(`Effect failed, cost refunded.`);
+             }
+
+
+             renderGame();
+         }
+
+        function endTurn(playerName) {
+            if (playerName !== gameState.activePlayer) return;
+
+            logMessage(`${playerName} ends their turn.`);
+            gameState.actionsTaken = 0; // Reset actions
+
+            if (gameState.activePlayer === "Weyland") {
+                gameState.activePlayer = "Criminal";
+                drawCard(gameState.players["Criminal"]); // Draw at start of turn
+            } else {
+                gameState.activePlayer = "Weyland";
+                gameState.turn++;
+                // Add income phase for simplicity
+                gameState.players["Weyland"].credits += 5; // Base income
+                gameState.players["Criminal"].credits += 4;
+                logMessage(`Turn ${gameState.turn} begins. Weyland gains 5 Cr, Criminal gains 4 Cr.`);
+                 drawCard(gameState.players["Weyland"]); // Draw at start of turn
+            }
+            renderGame();
+        }
+
+        function updateTerritoryControl() {
+            for (const id in gameState.territories) {
+                const t = gameState.territories[id];
+                if (t.influence >= 60) t.controlledBy = 'Weyland';
+                else if (t.influence <= 40) t.controlledBy = 'Criminal';
+                else t.controlledBy = 'Neutral';
+            }
+        }
+
+        function renderGame() {
+            // Render Info
+            document.getElementById('turn').textContent = gameState.turn;
+            document.getElementById('phase').textContent = gameState.phase;
+            document.getElementById('active-player').textContent = gameState.activePlayer;
+
+            // Render Territories
+            mapEl.innerHTML = '';
+            for (const id in gameState.territories) {
+                const t = gameState.territories[id];
+                const territoryDiv = document.createElement('div');
+                territoryDiv.classList.add('territory');
+                territoryDiv.id = `territory-${id}`;
+                territoryDiv.innerHTML = `
+                    <h4>${t.name}</h4>
+                    <div class="influence">Influence: ${t.influence}%</div>
+                    <div>Controlled by: ${t.controlledBy}</div>
+                `;
+                // Add border color based on control
+                 if (t.controlledBy === 'Weyland') territoryDiv.style.borderColor = 'red';
+                 else if (t.controlledBy === 'Criminal') territoryDiv.style.borderColor = 'blue';
+                 else territoryDiv.style.borderColor = '#555';
+
+                mapEl.appendChild(territoryDiv);
+            }
+
+             // Render Players
+             for (const playerName in gameState.players) {
+                 const player = gameState.players[playerName];
+                 const creditsEl = document.getElementById(`${playerName.toLowerCase()}-credits`);
+                 const handEl = document.getElementById(`${playerName.toLowerCase()}-hand`);
+                 const endTurnBtn = document.getElementById(`${playerName.toLowerCase()}-end-turn`);
+
+                 creditsEl.textContent = player.credits;
+                 handEl.innerHTML = '';
+                 player.hand.forEach(card => {
+                     const cardDiv = document.createElement('div');
+                     cardDiv.classList.add('card');
+                     if (player.name === "Weyland") cardDiv.classList.add('corp');
+                     cardDiv.textContent = `${card.name} (${card.cost} Cr)`;
+                     cardDiv.title = `${card.type} - ${card.id}`; // Store ID for click handler
+                     cardDiv.onclick = () => playCard(card.id, player);
+                     handEl.appendChild(cardDiv);
+                 });
+
+                 // Enable/disable controls
+                 const isActive = gameState.activePlayer === playerName;
+                 endTurnBtn.disabled = !isActive;
+                 handEl.style.opacity = isActive ? 1 : 0.6;
+             }
+
+             // Update control status after rendering influences
+             updateTerritoryControl();
+        }
+
+        function startGame() {
+            logMessage("Shuffling decks and dealing hands...");
+            shuffleDeck(gameState.players["Weyland"].deck);
+            shuffleDeck(gameState.players["Criminal"].deck);
+            dealHand(gameState.players["Weyland"], 3);
+            dealHand(gameState.players["Criminal"], 3);
+
+             // Add End Turn listeners
+             document.getElementById('weyland-end-turn').onclick = () => endTurn("Weyland");
+             document.getElementById('criminal-end-turn').onclick = () => endTurn("Criminal");
+
+            renderGame();
+            logMessage(`Weyland's turn ${gameState.turn}.`);
+        }
+
+        // Start the game when the DOM is ready
+        document.addEventListener('DOMContentLoaded', startGame);
+    </script>
+</body>
+</html>

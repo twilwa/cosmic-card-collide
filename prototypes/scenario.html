@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End of Line - Scenario Prototype</title>
+    <style>
+        body { font-family: sans-serif; display: flex; gap: 20px; padding: 10px; background-color: #222; color: #eee; }
+        .column { display: flex; flex-direction: column; gap: 15px; }
+        .area { background-color: #333; padding: 15px; border-radius: 5px; border: 1px solid #555; }
+        .area h3, .area h4 { margin-top: 0; color: #0f0; }
+        .hand, .rig, .ice-area { display: flex; flex-wrap: wrap; gap: 8px; min-height: 70px; border: 1px dashed #666; padding: 8px; background-color: #2a2a2a; }
+        .card { border: 1px solid #888; padding: 10px; background-color: #4CAF50; color: black; cursor: pointer; font-size: 0.9em; min-width: 110px; text-align: center; border-radius: 4px; }
+        .card.ice { background-color: #FF5722; }
+        .card.program { background-color: #2196F3; }
+        .card.hardware { background-color: #9C27B0; }
+        .card.event { background-color: #FFEB3B; color: #333; }
+        .card.asset { background-color: #795548; }
+        .card:hover { filter: brightness(1.2); }
+        .card.disabled { opacity: 0.5; cursor: default; }
+        .ice.encountered { border: 2px solid yellow; }
+        .log { height: 150px; overflow-y: scroll; border: 1px solid #666; padding: 5px; font-size: 0.85em; background: #1a1a1a; margin-top: 10px; color: #ccc; }
+        button { padding: 8px 15px; cursor: pointer; background-color: #555; color: #eee; border: none; border-radius: 3px; }
+        button:disabled { background-color: #444; color: #888; cursor: default; }
+        button:hover:not(:disabled) { background-color: #666; }
+        .subroutine { background: #ff5722; color: white; padding: 2px 5px; margin: 2px 0; font-size: 0.8em; border-radius: 2px; display: block;}
+    </style>
+</head>
+<body>
+    <div class="column">
+        <div class="area">
+            <h3>Runner State</h3>
+            <div>Clicks: <span id="runner-clicks">4</span> | Credits: <span id="runner-credits">5</span> | Memory: <span id="runner-memory">0/4</span></div>
+            <h4>Hand:</h4>
+            <div class="hand" id="runner-hand"></div>
+            <h4>Rig:</h4>
+            <div class="rig" id="runner-rig">
+                <!-- Installed programs/hardware -->
+            </div>
+            <button id="end-turn-btn">End Turn</button>
+        </div>
+         <div class="area">
+            <h3>Game Log</h3>
+            <div class="log" id="log">Scenario Started.<br></div>
+        </div>
+    </div>
+
+    <div class="column">
+        <div class="area">
+            <h3>Server (Corp Defenses)</h3>
+            <div>Run Progress: <span id="run-progress">0</span> / <span id="server-depth">3</span> ICE</div>
+            <h4>Encountered ICE:</h4>
+            <div class="ice-area" id="encountered-ice">
+                 <!-- Current ICE interaction -->
+            </div>
+             <h4>Upcoming ICE:</h4>
+            <div class="ice-area" id="upcoming-ice">
+                <!-- ICE setup by JS -->
+            </div>
+             <button id="approach-btn">Approach Next ICE</button>
+             <button id="access-btn" disabled>Access Server</button>
+             <button id="jack-out-btn">Jack Out</button>
+        </div>
+
+    </div>
+
+    <script>
+        const runnerCardDatabase = [
+            { id: "r1", name: "Sure Gamble", type: "Event", cost: 0, effect: (state) => { state.credits += 4; logMessage("Gained 4 Credits from Sure Gamble."); return true; } },
+            { id: "r2", name: "Corroder", type: "Program", subtype: "Fracter", cost: 2, memory: 1, strength: 2, installEffect: (state, cardEl) => { cardEl.dataset.strength = 2; }, useClicks: 1, useCost: 1, useEffect: (state, cardEl, targetIceEl) => { logMessage("Corroder breaks Barrier subroutine."); return { break: 1 }; }, pumpCost: 1, pumpEffect: (state, cardEl) => { cardEl.dataset.strength = parseInt(cardEl.dataset.strength) + 1; cardEl.querySelector('.strength-val').textContent = cardEl.dataset.strength; logMessage(`Corroder strength increased to ${cardEl.dataset.strength}.`);} },
+            { id: "r3", name: "Gordian Blade", type: "Program", subtype: "Decoder", cost: 4, memory: 1, strength: 2, installEffect: (state, cardEl) => { cardEl.dataset.strength = 2; }, useClicks: 1, useCost: 1, useEffect: (state, cardEl, targetIceEl) => { logMessage("Gordian Blade breaks Code Gate subroutine."); return { break: 1 }; }, pumpCost: 1, pumpEffect: (state, cardEl) => { cardEl.dataset.strength = parseInt(cardEl.dataset.strength) + 1; cardEl.querySelector('.strength-val').textContent = cardEl.dataset.strength; logMessage(`Gordian Blade strength increased to ${cardEl.dataset.strength}.`);} },
+            { id: "r4", name: "Extra RAM", type: "Hardware", cost: 1, memoryBonus: 2, effect: (state) => { state.maxMemory += 2; logMessage("Installed Extra RAM (+2 MU)."); return true; } },
+        ];
+
+        const corpIceDatabase = [
+            { id: "ice1", name: "Wall of Static", type: "ICE", subtype: "Barrier", strength: 3, rezCost: 3, subroutines: [{ text: "End the run.", effect: (state) => { logMessage("Subroutine: End the run!"); state.runEnded = true; } }] },
+            { id: "ice2", name: "Enigma", type: "ICE", subtype: "Code Gate", strength: 2, rezCost: 3, subroutines: [{ text: "Lose 1 Click.", effect: (state) => { if(state.clicks > 0) state.clicks--; logMessage("Subroutine: Lose 1 Click."); } }, { text: "End the run.", effect: (state) => { logMessage("Subroutine: End the run!"); state.runEnded = true; } }] },
+            { id: "ice3", name: "Data Raven", type: "ICE", subtype: "Sentry", strength: 4, rezCost: 4, subroutines: [{ text: "Trace [3] - Tag Runner.", effect: (state) => { logMessage("Subroutine: Trace [3] - Tag Runner (Trace not implemented, assuming success). Runner is tagged!"); state.runnerTagged = true; } }, { text: "End the run if tagged.", effect: (state) => { if (state.runnerTagged) { logMessage("Subroutine: End the run (Runner is tagged)!"); state.runEnded = true; }} }] },
+        ];
+
+        let scenarioState = {
+            clicks: 4,
+            credits: 5,
+            memoryUsed: 0,
+            maxMemory: 4,
+            hand: [],
+            rig: [], // Installed cards
+            deck: ["r1", "r2", "r3", "r4", "r1", "r2", "r3", "r4"],
+            serverIce: [], // ICE protecting the server
+            serverDepth: 3,
+            runProgress: 0, // Index of ICE currently approached/encountered
+            currentEncounter: null, // { ice: iceObject, rezzed: false, brokenSubs: [false, false,...] }
+            runActive: false,
+            runEnded: false,
+            runnerTagged: false,
+        };
+
+        const logEl = document.getElementById('log');
+
+        function logMessage(message) {
+            logEl.innerHTML += message + "<br>";
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        function drawCard() {
+            if (scenarioState.deck.length === 0) {
+                logMessage("Deck empty!"); return;
+            }
+            const cardId = scenarioState.deck.pop();
+            const card = runnerCardDatabase.find(c => c.id === cardId);
+            if (card) {
+                scenarioState.hand.push(card);
+            }
+        }
+
+        function spendClicks(amount) {
+            if (scenarioState.clicks >= amount) {
+                scenarioState.clicks -= amount;
+                return true;
+            }
+            logMessage("Not enough clicks!");
+            return false;
+        }
+
+        function spendCredits(amount) {
+             if (scenarioState.credits >= amount) {
+                 scenarioState.credits -= amount;
+                 return true;
+             }
+             logMessage("Not enough credits!");
+             return false;
+        }
+
+        function gainMemory(amount) {
+             scenarioState.memoryUsed += amount;
+             return scenarioState.memoryUsed <= scenarioState.maxMemory;
+        }
+         function freeMemory(amount) {
+             scenarioState.memoryUsed -= amount;
+         }
+
+        function playCardFromHand(cardId) {
+            if (!spendClicks(1)) return;
+
+            const cardIndex = scenarioState.hand.findIndex(c => c.id === cardId);
+            if (cardIndex === -1) return; // Should not happen
+
+            const card = scenarioState.hand[cardIndex];
+
+            if (!spendCredits(card.cost)) {
+                 scenarioState.clicks++; // Refund click
+                 return;
+            }
+
+            logMessage(`Playing ${card.name} (Cost: ${card.cost} Cr, 1 Click).`);
+            scenarioState.hand.splice(cardIndex, 1); // Remove from hand
+
+            if (card.type === "Event") {
+                card.effect(scenarioState);
+                // Event cards are usually discarded after effect
+            } else if (card.type === "Program" || card.type === "Hardware") {
+                if (card.memory && !gainMemory(card.memory)) {
+                    logMessage(`Not enough memory to install ${card.name} (Requires: ${card.memory} MU)`);
+                    scenarioState.credits += card.cost; // Refund credits
+                    scenarioState.clicks++; // Refund click
+                    scenarioState.hand.push(card); // Put back in hand
+                } else {
+                    scenarioState.rig.push(card);
+                    if(card.effect) card.effect(scenarioState); // For hardware like Extra RAM
+                     // Call installEffect if it exists, after adding to rig DOM
+                     setTimeout(() => { // Allow DOM to update
+                         const cardEl = document.querySelector(`.rig .card[data-id="${card.id}"]`);
+                         if (card.installEffect && cardEl) {
+                             card.installEffect(scenarioState, cardEl);
+                         }
+                         renderScenario(); // Re-render after potential install effect modifications
+                     }, 0);
+                }
+            }
+
+            renderScenario();
+            checkRunState();
+        }
+
+         function useProgramAbility(programId, abilityType, subIndex = -1) {
+             const programCard = scenarioState.rig.find(c => c.id === programId);
+             const programEl = document.querySelector(`.rig .card[data-id="${programId}"]`);
+             if (!programCard || !programEl) return;
+
+             const cost = abilityType === 'pump' ? programCard.pumpCost : programCard.useCost;
+             const clicks = abilityType === 'break' ? (programCard.useClicks || 1) : 0; // Pumping usually costs 0 clicks
+
+             if (!spendClicks(clicks)) return;
+             if (!spendCredits(cost)) {
+                 scenarioState.clicks += clicks; // refund click
+                 return;
+             }
+
+             logMessage(`Using ${programCard.name}'s ${abilityType} ability (Cost: ${cost} Cr, ${clicks} Click).`);
+
+             if (abilityType === 'pump') {
+                 programCard.pumpEffect(scenarioState, programEl);
+             } else if (abilityType === 'break') {
+                  if(scenarioState.currentEncounter && scenarioState.currentEncounter.rezzed) {
+                      const iceStr = scenarioState.currentEncounter.ice.strength;
+                      const breakerStr = parseInt(programEl.dataset.strength);
+                      if (breakerStr < iceStr) {
+                          logMessage(`${programCard.name} strength (${breakerStr}) is less than ${scenarioState.currentEncounter.ice.name} strength (${iceStr})!`);
+                           scenarioState.credits += cost; // refund
+                           scenarioState.clicks += clicks;
+                           renderScenario();
+                           return;
+                      }
+
+                      if (subIndex !== -1 && !scenarioState.currentEncounter.brokenSubs[subIndex]) {
+                         const result = programCard.useEffect(scenarioState, programEl, scenarioState.currentEncounter.ice);
+                         if (result && result.break) {
+                             scenarioState.currentEncounter.brokenSubs[subIndex] = true;
+                             logMessage(`Subroutine ${subIndex + 1} broken.`);
+                         } else {
+                              scenarioState.credits += cost; // refund
+                              scenarioState.clicks += clicks;
+                         }
+                      } else {
+                           logMessage("Invalid subroutine index or already broken.");
+                            scenarioState.credits += cost; // refund
+                            scenarioState.clicks += clicks;
+                      }
+
+                  } else {
+                      logMessage("No ICE encountered or ICE not rezzed.");
+                      scenarioState.credits += cost; // refund
+                       scenarioState.clicks += clicks;
+                  }
+             }
+             renderScenario();
+             checkRunState();
+         }
+
+
+        function approachIce() {
+            if (!scenarioState.runActive || scenarioState.runEnded) {
+                logMessage("Run not active or already ended.");
+                return;
+            }
+             if (scenarioState.currentEncounter && !allSubsBroken(scenarioState.currentEncounter)) {
+                 logMessage(`Must deal with ${scenarioState.currentEncounter.ice.name} first!`);
+                 return;
+             }
+            if (!spendClicks(1)) return;
+
+
+            scenarioState.currentEncounter = null; // Clear previous encounter details
+            if (scenarioState.runProgress < scenarioState.serverDepth) {
+                 const nextIce = scenarioState.serverIce[scenarioState.runProgress];
+                 logMessage(`Approaching ICE ${scenarioState.runProgress + 1}: ${nextIce.name} (${nextIce.subtype}) Strength ${nextIce.strength}.`);
+                 scenarioState.currentEncounter = { ice: nextIce, rezzed: false, brokenSubs: Array(nextIce.subroutines.length).fill(false) };
+                 rezIce(scenarioState.currentEncounter); // Auto-rez for prototype simplicity
+                 scenarioState.runProgress++;
+            } else {
+                logMessage("No more ICE. Server can be accessed.");
+                 // No click refunded, approach was the action to reach server
+            }
+
+            renderScenario();
+            checkRunState();
+        }
+
+         function rezIce(encounter) {
+             if (!encounter || encounter.rezzed) return;
+             const ice = encounter.ice;
+             // Simple auto-rez, no cost check for prototype
+             logMessage(`Corp rezzes ${ice.name}.`);
+             encounter.rezzed = true;
+             // In a real game, Corp would pay rezCost
+             renderScenario(); // Update UI to show rezzed state / subs
+         }
+
+        function allSubsBroken(encounter) {
+            if (!encounter || !encounter.rezzed) return true; // If not rezzed or no encounter, can pass
+            return encounter.brokenSubs.every(broken => broken);
+        }
+
+        function fireUnbrokenSubroutines() {
+             if (!scenarioState.currentEncounter || !scenarioState.currentEncounter.rezzed || scenarioState.runEnded) return;
+             logMessage(`Corp fires unbroken subroutines on ${scenarioState.currentEncounter.ice.name}:`);
+             let fired = false;
+             scenarioState.currentEncounter.ice.subroutines.forEach((sub, index) => {
+                 if (!scenarioState.currentEncounter.brokenSubs[index]) {
+                     logMessage(`Firing Sub ${index + 1}: ${sub.text}`);
+                     sub.effect(scenarioState);
+                     fired = true;
+                     if (scenarioState.runEnded) return; // Stop if a sub ends the run
+                 }
+             });
+             if (!fired) logMessage("No unbroken subroutines to fire.");
+
+              renderScenario();
+             checkRunState();
+         }
+
+        function accessServer() {
+             if (!scenarioState.runActive || scenarioState.runEnded) { logMessage("Run not active."); return; }
+             if (scenarioState.currentEncounter && !allSubsBroken(scenarioState.currentEncounter)) { logMessage("Cannot pass ICE."); return; }
+             if (scenarioState.runProgress < scenarioState.serverDepth) { logMessage("Haven't passed all ICE."); return; }
+            if (!spendClicks(1)) return;
+
+            logMessage("Accessing Server... Success!");
+            // TODO: Implement actual access effects (draw cards, steal agenda, etc.)
+             scenarioState.runEnded = true; // End run after successful access
+            renderScenario();
+             checkRunState();
+        }
+
+        function jackOut() {
+             if (!scenarioState.runActive || scenarioState.runEnded) { logMessage("Run not active."); return; }
+            if (!spendClicks(1)) return;
+
+            logMessage("Runner jacks out.");
+            scenarioState.runEnded = true;
+            renderScenario();
+             checkRunState();
+        }
+
+        function endTurn() {
+             if(scenarioState.runActive && scenarioState.currentEncounter && scenarioState.currentEncounter.rezzed) {
+                 fireUnbrokenSubroutines();
+                 if(scenarioState.runEnded) { // Check if subs ended the run
+                      logMessage("Run ended by subroutines before turn end.");
+                      // Reset for next turn if run ended
+                      scenarioState.clicks = 4;
+                      scenarioState.runActive = false;
+                      scenarioState.currentEncounter = null;
+                      scenarioState.runProgress = 0; // Reset run progress? Or just end run? For now, reset.
+                      renderScenario();
+                      checkRunState();
+                      return;
+                 }
+             }
+             logMessage("Runner ends turn.");
+             // Corp turn (simplified - just reset runner clicks/draw)
+             scenarioState.clicks = 4;
+             drawCard();
+             logMessage("Corp turn skipped (simple prototype). Runner turn begins.");
+             renderScenario();
+             checkRunState(); // Ensure buttons are updated
+        }
+
+         function checkRunState() {
+              const approachBtn = document.getElementById('approach-btn');
+              const accessBtn = document.getElementById('access-btn');
+              const jackOutBtn = document.getElementById('jack-out-btn');
+              const endTurnBtn = document.getElementById('end-turn-btn');
+
+              const canApproach = scenarioState.runActive && !scenarioState.runEnded && (!scenarioState.currentEncounter || allSubsBroken(scenarioState.currentEncounter)) && scenarioState.runProgress < scenarioState.serverDepth;
+              const canAccess = scenarioState.runActive && !scenarioState.runEnded && (!scenarioState.currentEncounter || allSubsBroken(scenarioState.currentEncounter)) && scenarioState.runProgress >= scenarioState.serverDepth;
+
+              approachBtn.disabled = !canApproach || scenarioState.clicks < 1;
+              accessBtn.disabled = !canAccess || scenarioState.clicks < 1;
+              jackOutBtn.disabled = !scenarioState.runActive || scenarioState.runEnded || scenarioState.clicks < 1;
+              endTurnBtn.disabled = scenarioState.runEnded; // Can't end turn if run already forced end
+
+               // Disable card play/program use if no clicks or run ended
+                document.querySelectorAll('.hand .card, .rig .card button').forEach(el => {
+                    el.disabled = scenarioState.clicks === 0 || scenarioState.runEnded;
+                    if (el.classList.contains('card')) {
+                         el.classList.toggle('disabled', scenarioState.clicks === 0 || scenarioState.runEnded);
+                    }
+                });
+         }
+
+        function renderScenario() {
+            // Runner State
+            document.getElementById('runner-clicks').textContent = scenarioState.clicks;
+            document.getElementById('runner-credits').textContent = scenarioState.credits;
+            document.getElementById('runner-memory').textContent = `${scenarioState.memoryUsed}/${scenarioState.maxMemory}`;
+
+            // Hand
+            const handEl = document.getElementById('runner-hand');
+            handEl.innerHTML = '';
+            scenarioState.hand.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.classList.add('card', card.type.toLowerCase());
+                 if (scenarioState.clicks === 0 || scenarioState.runEnded) cardDiv.classList.add('disabled');
+                cardDiv.textContent = `${card.name} (${card.cost} Cr)`;
+                 if(card.memory) cardDiv.textContent += ` [${card.memory} MU]`;
+                cardDiv.title = `Play ${card.name}`;
+                cardDiv.onclick = () => { if(!cardDiv.classList.contains('disabled')) playCardFromHand(card.id); };
+                handEl.appendChild(cardDiv);
+            });
+
+            // Rig
+            const rigEl = document.getElementById('runner-rig');
+            rigEl.innerHTML = '';
+            scenarioState.rig.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.classList.add('card', card.type.toLowerCase());
+                cardDiv.dataset.id = card.id; // Store ID for ability usage
+                let cardHTML = `${card.name}`;
+                if (card.memory) cardHTML += ` [${card.memory} MU]`;
+                if (card.type === "Program") {
+                     cardHTML += ` (Str: <span class="strength-val">${card.strength || 0}</span>)`; // Use initial strength
+                     cardDiv.dataset.strength = card.strength || 0; // Store current strength
+
+                     // Add buttons for abilities
+                     if (card.pumpCost !== undefined) {
+                          const pumpBtn = document.createElement('button');
+                          pumpBtn.textContent = `Pump (+${card.pumpCost} Cr)`;
+                          pumpBtn.onclick = (e) => { e.stopPropagation(); if(!pumpBtn.disabled) useProgramAbility(card.id, 'pump'); };
+                          cardDiv.appendChild(pumpBtn);
+                     }
+                      if (card.useCost !== undefined) {
+                         // Button added dynamically when encountering ICE
+                      }
+                }
+                cardDiv.innerHTML += cardHTML; // Append base HTML first
+                rigEl.appendChild(cardDiv);
+            });
+
+             // Server State
+             document.getElementById('run-progress').textContent = scenarioState.runProgress;
+             document.getElementById('server-depth').textContent = scenarioState.serverDepth;
+
+             // Encountered ICE
+             const encounterEl = document.getElementById('encountered-ice');
+             encounterEl.innerHTML = '';
+             if (scenarioState.currentEncounter) {
+                 const ice = scenarioState.currentEncounter.ice;
+                 const cardDiv = document.createElement('div');
+                 cardDiv.classList.add('card', 'ice', ice.subtype.toLowerCase());
+                 cardDiv.classList.toggle('encountered', true);
+                 cardDiv.classList.toggle('rezzed', scenarioState.currentEncounter.rezzed); // Visual cue if rezzed
+
+                 let iceHTML = `<b>${ice.name}</b> (Str ${ice.strength})<br><i>${ice.subtype}</i>`;
+                 if (scenarioState.currentEncounter.rezzed) {
+                    ice.subroutines.forEach((sub, index) => {
+                        const subBroken = scenarioState.currentEncounter.brokenSubs[index];
+                        iceHTML += `<span class="subroutine ${subBroken ? 'broken' : ''}" title="${subBroken ? 'Broken' : 'Active'}">↳ ${sub.text}`;
+                         // Add break buttons next to subs if applicable breakers are installed
+                         scenarioState.rig.forEach(prog => {
+                              // Basic check: Does program subtype match ICE subtype?
+                              let canBreak = false;
+                              if (prog.subtype === "Fracter" && ice.subtype === "Barrier") canBreak = true;
+                              if (prog.subtype === "Decoder" && ice.subtype === "Code Gate") canBreak = true;
+                              if (prog.subtype === "Killer" && ice.subtype === "Sentry") canBreak = true; // Killer not in prototype db
+
+                              if (canBreak && prog.useEffect && !subBroken) {
+                                   const breakBtn = document.createElement('button');
+                                   breakBtn.textContent = `Break (${prog.name})`;
+                                   breakBtn.style.marginLeft = '5px';
+                                   breakBtn.style.fontSize = '0.8em';
+                                   breakBtn.onclick = (e) => { e.stopPropagation(); if(!breakBtn.disabled) useProgramAbility(prog.id, 'break', index); };
+                                   // Temporarily create a span to append button, then add span's innerHTML
+                                   const tempSpan = document.createElement('span');
+                                   tempSpan.appendChild(breakBtn);
+                                   iceHTML += tempSpan.innerHTML;
+                              }
+                         });
+                         iceHTML += `</span>`;
+                    });
+                 } else {
+                     iceHTML += `<br>(Not Rezzed)`;
+                 }
+                 cardDiv.innerHTML = iceHTML;
+                 encounterEl.appendChild(cardDiv);
+             } else {
+                  encounterEl.textContent = 'None';
+             }
+
+
+             // Upcoming ICE
+            const upcomingEl = document.getElementById('upcoming-ice');
+            upcomingEl.innerHTML = '';
+            for(let i = scenarioState.runProgress; i < scenarioState.serverDepth; i++) {
+                const ice = scenarioState.serverIce[i];
+                 const cardDiv = document.createElement('div');
+                cardDiv.classList.add('card', 'ice', 'upcoming');
+                cardDiv.textContent = `ICE ${i+1}: ???`; // Keep upcoming hidden initially
+                 cardDiv.title = ice.name; // Show name on hover for debug/prototype ease
+                upcomingEl.appendChild(cardDiv);
+            }
+             if(upcomingEl.innerHTML === '') upcomingEl.textContent = 'None (Server Access)';
+
+            checkRunState(); // Update button states
+        }
+
+        function setupScenario() {
+            logMessage("Setting up scenario...");
+            scenarioState.serverDepth = 3;
+            // Simple setup: pick first N ICE from db
+            scenarioState.serverIce = corpIceDatabase.slice(0, scenarioState.serverDepth);
+
+            shuffleDeck(scenarioState.deck);
+            for (let i = 0; i < 4; i++) drawCard(); // Draw starting hand
+
+             scenarioState.runActive = true; // Start the run immediately for this prototype
+             scenarioState.runEnded = false;
+             scenarioState.runProgress = 0;
+             scenarioState.currentEncounter = null;
+             logMessage("Run initiated!");
+
+            renderScenario();
+        }
+
+        // Add Event Listeners
+        document.getElementById('approach-btn').onclick = approachIce;
+        document.getElementById('access-btn').onclick = accessServer;
+        document.getElementById('jack-out-btn').onclick = jackOut;
+        document.getElementById('end-turn-btn').onclick = endTurn;
+
+
+        // Start the game when the DOM is ready
+        document.addEventListener('DOMContentLoaded', setupScenario);
+    </script>
+</body>
+</html>
