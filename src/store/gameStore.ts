@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { 
   GameState, 
@@ -98,7 +97,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   // Message handlers
   handleGameMessage: (message: ServerToClientMessage) => {
+    console.log('Handling game message:', message);
+    
     switch (message.type) {
+      case MessageType.CLIENT_ID_ASSIGNED:
+        set({ myClientId: message.clientId });
+        break;
+        
+      case MessageType.ALL_CARD_DEFINITIONS:
+        // Ensure card definitions match the expected type
+        const typedCardDefinitions: CardDefinition[] = message.cardDefinitions.map(card => ({
+          ...card,
+          faction: card.faction as FactionType, // Cast to the proper type
+        }));
+        
+        set({ 
+          cardDefinitions: typedCardDefinitions.reduce((acc, def) => {
+            acc[def.id] = def;
+            return acc;
+          }, {} as Record<string, CardDefinition>)
+        });
+        break;
+        
       case MessageType.CONNECTION_ACK:
         console.log('Connection acknowledged by server');
         break;
@@ -107,18 +127,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if ('gameState' in message) {
           console.log('Game state initialized', message.gameState);
           set({ gameState: message.gameState });
-        }
-        break;
-        
-      case MessageType.ALL_CARD_DEFINITIONS:
-        if ('cardDefinitions' in message) {
-          console.log('Received card definitions', message.cardDefinitions);
-          const cardDefsMap: { [id: string]: CardDefinition } = {};
-          message.cardDefinitions.forEach(def => {
-            cardDefsMap[def.id] = def;
-          });
-          
-          set({ cardDefinitions: cardDefsMap });
         }
         break;
         
@@ -253,7 +261,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         break;
         
       default:
-        console.log('Unhandled message type:', message.type);
+        console.warn(`Unhandled message type: ${message.type}`);
     }
   }
 }));
