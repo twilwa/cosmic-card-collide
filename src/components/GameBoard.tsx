@@ -6,66 +6,23 @@ import { Button } from "@/components/ui/button";
 import GameCanvas from '@/components/GameCanvas';
 import { useGameStore } from '@/store/gameStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { GamePhase, MessageType } from '@/types/gameTypes';
-
-interface CardProps {
-  id: string;
-  name: string;
-  cost: number;
-  type: string;
-  faction: string;
-  description: string;
-  onClick?: () => void;
-  isSelected?: boolean;
-}
-
-const GameCard: React.FC<CardProps> = ({ 
-  id, name, cost, type, faction, description, onClick, isSelected 
-}) => {
-  return (
-    <Card 
-      className={`w-32 h-48 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
-      onClick={onClick}
-    >
-      <CardContent className="p-2">
-        <div className="text-xs font-bold">{name}</div>
-        <div className="text-xs">Cost: {cost}</div>
-        <div className="text-xs">Type: {type}</div>
-        <div className="text-xs">Faction: {faction}</div>
-        <div className="text-xs mt-2 text-gray-400 line-clamp-3">{description}</div>
-      </CardContent>
-    </Card>
-  );
-};
+import { GamePhase } from '@/types/gameTypes';
+import CardComponent from '@/components/CardComponent';
 
 const GameBoard = () => {
-  // Get game state from Zustand store
+  // Get game state from Zustand store using a memoized selector
   const { 
-    gameState,
+    territories,
     currentPlayer,
     cardDefinitions,
     myClientId,
     isPlayerTurn,
     phase,
-    selectedCardInstanceId,
-    setSelectedCard
-  } = useGameStore(state => ({
-    gameState: state.gameState,
-    currentPlayer: state.currentPlayer,
-    cardDefinitions: state.cardDefinitions,
-    myClientId: state.myClientId,
-    isPlayerTurn: state.isPlayerTurn,
-    phase: state.phase,
-    selectedCardInstanceId: state.selectedCardInstanceId,
-    setSelectedCard: state.setSelectedCard
-  }));
+    selectedCardId,
+    myHand,
+    selectCard
+  } = useGameStore();
 
-  // Get territories from game state
-  const territories = gameState?.territories || [];
-  
-  // Get player hand from game state
-  const myHand = gameState?.playerHand || [];
-  
   // Get WebSocket functionality
   const { isConnected, sendMessage } = useWebSocket();
 
@@ -87,7 +44,7 @@ const GameBoard = () => {
 
   // Card click handler
   const handleCardClick = (instanceId: string) => {
-    setSelectedCard(instanceId);
+    selectCard(instanceId);
   };
 
   return (
@@ -114,11 +71,11 @@ const GameBoard = () => {
           </div>
         </div>
         
-        {/* Main game area - Replace TerritoryMap with GameCanvas */}
+        {/* Main game area */}
         <div className="col-span-2 flex flex-col gap-4">
-          {phase === 'OVERWORLD' && (
+          {phase === GamePhase.OVERWORLD && (
             <GameCanvas 
-              phase={phase as GamePhase}
+              phase={phase}
               territories={territories}
               onTerritoryClick={handleTerritoryClick}
               width={800}
@@ -126,7 +83,7 @@ const GameBoard = () => {
             />
           )}
           
-          {phase === 'SCENARIO' && (
+          {phase === GamePhase.SCENARIO && (
             <div className="border border-gray-700 rounded-lg bg-black/50 h-[500px] flex items-center justify-center">
               <p className="text-center text-gray-400">Scenario mode - Coming soon</p>
             </div>
@@ -145,17 +102,13 @@ const GameBoard = () => {
           {myHand.map((cardInstanceId) => {
             const card = cardDefinitions[cardInstanceId];
             if (!card) return null;
+            
             return (
-              <GameCard
-                key={card.id}
-                id={card.id}
-                name={card.name}
-                cost={card.cost}
-                type={card.type}
-                faction={card.faction}
-                description={card.description}
-                onClick={() => handleCardClick(card.id)}
-                isSelected={selectedCardInstanceId === card.id}
+              <CardComponent
+                key={cardInstanceId}
+                cardDefinition={card}
+                isSelected={selectedCardId === cardInstanceId}
+                onClick={() => handleCardClick(cardInstanceId)}
               />
             );
           })}
