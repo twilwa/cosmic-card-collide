@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { Card } from "@/components/card"
-import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import GameCanvas from '@/components/GameCanvas';
 import { useGameStore } from '@/store/gameStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { MessageType } from '@/types/gameTypes';
+import { GamePhase, MessageType } from '@/types/gameTypes';
 
 interface CardProps {
   id: string;
@@ -14,22 +15,56 @@ interface CardProps {
   type: string;
   faction: string;
   description: string;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
+
+const GameCard: React.FC<CardProps> = ({ 
+  id, name, cost, type, faction, description, onClick, isSelected 
+}) => {
+  return (
+    <Card 
+      className={`w-32 h-48 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
+      onClick={onClick}
+    >
+      <CardContent className="p-2">
+        <div className="text-xs font-bold">{name}</div>
+        <div className="text-xs">Cost: {cost}</div>
+        <div className="text-xs">Type: {type}</div>
+        <div className="text-xs">Faction: {faction}</div>
+        <div className="text-xs mt-2 text-gray-400 line-clamp-3">{description}</div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const GameBoard = () => {
   // Get game state from Zustand store
   const { 
-    territories,
     gameState,
     currentPlayer,
-    myHand,
     cardDefinitions,
     myClientId,
     isPlayerTurn,
     phase,
     selectedCardInstanceId,
     setSelectedCard
-  } = useGameStore();
+  } = useGameStore(state => ({
+    gameState: state.gameState,
+    currentPlayer: state.currentPlayer,
+    cardDefinitions: state.cardDefinitions,
+    myClientId: state.myClientId,
+    isPlayerTurn: state.isPlayerTurn,
+    phase: state.phase,
+    selectedCardInstanceId: state.selectedCardInstanceId,
+    setSelectedCard: state.setSelectedCard
+  }));
+
+  // Get territories from game state
+  const territories = gameState?.territories || [];
+  
+  // Get player hand from game state
+  const myHand = gameState?.playerHand || [];
   
   // Get WebSocket functionality
   const { isConnected, sendMessage } = useWebSocket();
@@ -46,8 +81,7 @@ const GameBoard = () => {
     // Add territory selection logic using the store
     toast({
       title: `Selected Territory: ${territoryId}`,
-      description: "Territory actions will be implemented soon",
-      variant: "default",
+      description: "Territory actions will be implemented soon"
     });
   };
 
@@ -84,7 +118,7 @@ const GameBoard = () => {
         <div className="col-span-2 flex flex-col gap-4">
           {phase === 'OVERWORLD' && (
             <GameCanvas 
-              phase={phase}
+              phase={phase as GamePhase}
               territories={territories}
               onTerritoryClick={handleTerritoryClick}
               width={800}
@@ -112,7 +146,7 @@ const GameBoard = () => {
             const card = cardDefinitions[cardInstanceId];
             if (!card) return null;
             return (
-              <Card
+              <GameCard
                 key={card.id}
                 id={card.id}
                 name={card.name}

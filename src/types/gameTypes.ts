@@ -1,3 +1,4 @@
+
 export interface BaseMessage {
   type: string;
 }
@@ -44,13 +45,18 @@ export interface PlayerResourceUpdateMessage extends BaseMessage {
   };
 }
 
+export interface TerritoryUpdateMessage extends BaseMessage {
+  type: 'TERRITORY_UPDATE';
+  territories: Territory[];
+}
+
 export interface TurnChangeMessage extends BaseMessage {
   type: 'TURN_CHANGE';
   currentPlayerId: string;
   turnNumber: number;
 }
 
-export type Message =
+export type ServerToClientMessage =
   | ClientIdAssignedMessage
   | AllCardDefinitionsMessage
   | GameStateInitMessage
@@ -58,6 +64,7 @@ export type Message =
   | PlayerDeckUpdateMessage
   | PlayerDiscardUpdateMessage
   | PlayerResourceUpdateMessage
+  | TerritoryUpdateMessage
   | TurnChangeMessage;
 
 export enum GamePhase {
@@ -65,15 +72,30 @@ export enum GamePhase {
   OVERWORLD = 'OVERWORLD',
   SCENARIO = 'SCENARIO',
   END = 'END',
+  WAITING = 'WAITING',
+  TURN_BASED = 'TURN_BASED'
 }
 
 export type FactionType = "CORPORATION" | "RUNNER";
+
+export interface PlayerData {
+  id: string;
+  username: string;
+  faction: FactionType | null;
+  avatar_url: string;
+  resources: {
+    credits: number;
+    dataTokens: number;
+  };
+}
 
 export interface GameState {
   phase: GamePhase;
   turnNumber: number;
   currentPlayerId: string;
   playerStates: PlayerState[];
+  territories: Territory[];
+  playerHand: string[]; // Card instance IDs
   activeScenario?: ScenarioState;
 }
 
@@ -127,6 +149,7 @@ export interface CardDefinition {
   type: string;
   faction: FactionType;
   description: string;
+  flavorText?: string;
   effectDefinition?: CardEffect[];
 }
 
@@ -134,14 +157,22 @@ export interface CardEffect {
   effectType: string;
   effectValue: number;
   targetType?: string;
+  amount?: number;
+  resource?: string;
+  count?: number;
+  strength?: number;
+  value?: number;
 }
 
 export interface Territory {
   id: string;
   name: string;
   owner?: string;
+  controlledBy?: string;
   x?: number;
   y?: number;
+  position?: { x: number, y: number };
+  connections?: string[];
 }
 
 export enum MessageType {
@@ -155,6 +186,8 @@ export enum MessageType {
   PLAYER_RESOURCE_UPDATE = 'PLAYER_RESOURCE_UPDATE',
   TURN_CHANGE = 'TURN_CHANGE',
   PLAY_CARD = 'PLAY_CARD',
+  TERRITORY_UPDATE = 'TERRITORY_UPDATE',
+  CONNECTION_ACK = 'CONNECTION_ACK'
 }
 
 export interface PlayCardMessage extends BaseMessage {
