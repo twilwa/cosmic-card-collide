@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { 
   GameState, 
@@ -8,6 +9,7 @@ import {
   MessageType,
   ServerToClientMessage,
   GamePhase,
+  FactionType,
 } from '../types/gameTypes';
 
 interface GameStore {

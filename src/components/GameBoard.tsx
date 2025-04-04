@@ -39,26 +39,15 @@ const GameCard: React.FC<CardProps> = ({
 };
 
 const GameBoard = () => {
-	// Get game state from Zustand store
-	const {
-		gameState,
-		currentPlayer,
-		cardDefinitions,
-		myClientId,
-		isPlayerTurn,
-		phase,
-		selectedCardInstanceId,
-		setSelectedCard
-	} = useGameStore(state => ({
-		gameState: state.gameState,
-		currentPlayer: state.currentPlayer,
-		cardDefinitions: state.cardDefinitions,
-		myClientId: state.myClientId,
-		isPlayerTurn: state.isPlayerTurn,
-		phase: state.phase,
-		selectedCardInstanceId: state.selectedCardId,
-		setSelectedCard: state.selectCard(state.selectedCardId ? null : state.selectedCardId)
-	}));
+	// Get game state from Zustand store - Fixed the selector to avoid creating functions inside it
+	const gameState = useGameStore(state => state.gameState);
+	const currentPlayer = useGameStore(state => state.currentPlayer);
+	const cardDefinitions = useGameStore(state => state.cardDefinitions);
+	const myClientId = useGameStore(state => state.myClientId);
+	const isPlayerTurn = useGameStore(state => state.isPlayerTurn);
+	const phase = useGameStore(state => state.phase);
+	const selectedCardInstanceId = useGameStore(state => state.selectedCardId);
+	const setSelectedCard = useGameStore(state => state.selectCard);
 
 	// Get territories from game state
 	const territories = gameState?.territories || [];
@@ -80,13 +69,13 @@ const GameBoard = () => {
 		console.log(`Territory clicked: ${territoryId}`);
 		// Add territory selection logic using the store
 		toast({
-			title: `Selected Territory: ${territoryId}`,
-			description: "Territory actions will be implemented soon"
+			description: `Selected Territory: ${territoryId}. Territory actions will be implemented soon`
 		});
 	};
 
 	// Card click handler
 	const handleCardClick = (cardId: string) => {
+		setSelectedCard(cardId);
 	};
 
 	return (
