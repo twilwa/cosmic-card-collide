@@ -22,6 +22,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: Error | null;
   isGuest: boolean;
+  signIn: (provider: 'github' | 'discord' | 'twitter' | 'google') => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -53,7 +54,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
-      return data as PlayerData;
+      // Convert supabase data to PlayerData type
+      if (data) {
+        return {
+          id: data.id,
+          username: data.username,
+          faction: data.faction as FactionType | null,
+          avatar_url: data.avatar_url,
+          resources: {
+            credits: typeof data.resources === 'object' && data.resources 
+              ? (data.resources.credits || 5) 
+              : 5,
+            dataTokens: typeof data.resources === 'object' && data.resources 
+              ? (data.resources.dataTokens || 3) 
+              : 3,
+          }
+        } as PlayerData;
+      }
+      
+      return null;
     } catch (err) {
       console.error('Error in fetchPlayerData:', err);
       return null;
@@ -110,6 +129,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  const signIn = async (provider: 'github' | 'discord' | 'twitter' | 'google') => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      setError(error as Error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const signInWithEmail = async (email: string, password: string) => {
     setIsLoading(true);
@@ -199,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     error,
     isGuest,
+    signIn,
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,

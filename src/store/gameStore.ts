@@ -5,7 +5,7 @@ import {
   CardDefinition, 
   CardInstance, 
   Territory, 
-  Player,
+  PlayerState,
   MessageType,
   ServerToClientMessage,
   GamePhase,
@@ -29,11 +29,11 @@ interface GameStore {
   
   // Getters - these are computed properties
   getCardDefinition: (definitionId: string) => CardDefinition | undefined;
-  getMyPlayer: () => Player | undefined;
+  getMyPlayer: () => PlayerState | undefined;
   isMyTurn: () => boolean;
   
   // Computed properties - we'll create these as functions to maintain TypeScript support
-  currentPlayer: Player | undefined;
+  currentPlayer: string | undefined;
   isPlayerTurn: boolean;
   phase: GamePhase;
 }
@@ -75,7 +75,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   getMyPlayer: () => {
     const { gameState, myClientId } = get();
     if (!gameState || !myClientId) return undefined;
-    return gameState.players.find(player => player.id === myClientId);
+    return gameState.playerStates.find(player => player.clientId === myClientId);
   },
   
   isMyTurn: () => {
@@ -86,7 +86,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   // Computed properties using getters
   get currentPlayer() {
-    return get().getMyPlayer();
+    const player = get().getMyPlayer();
+    return player?.displayName;
   },
   
   get isPlayerTurn() {
@@ -121,7 +122,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
         break;
         
-      case MessageType.CONNECTION_ACK:
+      case 'CONNECTION_ACK':
         console.log('Connection acknowledged by server');
         break;
         
@@ -139,11 +140,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set(state => {
             if (!state.gameState) return state;
             
-            const updatedPlayers = state.gameState.players.map(player => {
-              if (player.id === message.playerId) {
+            // We need to update the player's hand in playerStates
+            const updatedPlayerStates = state.gameState.playerStates.map(player => {
+              if (player.clientId === message.playerId) {
                 return {
                   ...player,
-                  hand: message.hand
+                  zones: {
+                    ...player.zones,
+                    hand: message.hand
+                  }
                 };
               }
               return player;
@@ -153,7 +158,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               ...state,
               gameState: {
                 ...state.gameState,
-                players: updatedPlayers
+                playerStates: updatedPlayerStates
               }
             };
           });
@@ -187,8 +192,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set(state => {
             if (!state.gameState) return state;
             
-            const updatedPlayers = state.gameState.players.map(player => {
-              if (player.id === message.playerId) {
+            const updatedPlayerStates = state.gameState.playerStates.map(player => {
+              if (player.clientId === message.playerId) {
                 return {
                   ...player,
                   resources: message.resources
@@ -201,7 +206,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               ...state,
               gameState: {
                 ...state.gameState,
-                players: updatedPlayers
+                playerStates: updatedPlayerStates
               }
             };
           });
@@ -215,7 +220,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set(state => {
             if (!state.gameState) return state;
             
-            const territory = message.territory;
+            const territory = message.territory as Territory;
             const updatedTerritories = state.gameState.territories.map(t => {
               if (t.id === territory.id) {
                 return territory;
@@ -241,11 +246,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set(state => {
             if (!state.gameState) return state;
             
-            const updatedPlayers = state.gameState.players.map(player => {
-              if (player.id === message.playerId) {
+            const updatedPlayerStates = state.gameState.playerStates.map(player => {
+              if (player.clientId === message.playerId) {
                 return {
                   ...player,
-                  discard: message.discard
+                  zones: {
+                    ...player.zones,
+                    discardPile: message.discard
+                  }
                 };
               }
               return player;
@@ -255,7 +263,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               ...state,
               gameState: {
                 ...state.gameState,
-                players: updatedPlayers
+                playerStates: updatedPlayerStates
               }
             };
           });

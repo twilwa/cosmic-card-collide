@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { Github, Twitter, MessageSquare, Mail } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -20,8 +20,7 @@ interface LoginModalProps {
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onContinueAsGuest }) => {
   const { signIn, isLoading } = useAuth();
-  const { toast } = useToast();
-
+  
   const handleSignIn = async (provider: 'github' | 'discord' | 'twitter' | 'google') => {
     try {
       toast({

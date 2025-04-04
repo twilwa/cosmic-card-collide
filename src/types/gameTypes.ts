@@ -20,25 +20,25 @@ export interface GameStateInitMessage extends BaseMessage {
 
 export interface PlayerHandUpdateMessage extends BaseMessage {
   type: 'PLAYER_HAND_UPDATE';
-  clientId: string;
+  playerId: string;
   hand: CardInstance[];
 }
 
 export interface PlayerDeckUpdateMessage extends BaseMessage {
   type: 'PLAYER_DECK_UPDATE';
-  clientId: string;
+  playerId: string;
   deckSize: number;
 }
 
 export interface PlayerDiscardUpdateMessage extends BaseMessage {
   type: 'PLAYER_DISCARD_UPDATE';
-  clientId: string;
-  discardPile: CardInstance[];
+  playerId: string;
+  discard: CardInstance[];
 }
 
 export interface PlayerResourceUpdateMessage extends BaseMessage {
   type: 'PLAYER_RESOURCE_UPDATE';
-  clientId: string;
+  playerId: string;
   resources: {
     credits: number;
     dataTokens: number;
@@ -47,13 +47,17 @@ export interface PlayerResourceUpdateMessage extends BaseMessage {
 
 export interface TerritoryUpdateMessage extends BaseMessage {
   type: 'TERRITORY_UPDATE';
-  territories: Territory[];
+  territory: Territory;
 }
 
 export interface TurnChangeMessage extends BaseMessage {
   type: 'TURN_CHANGE';
   currentPlayerId: string;
   turnNumber: number;
+}
+
+export interface ConnectionAckMessage extends BaseMessage {
+  type: 'CONNECTION_ACK';
 }
 
 export type ServerToClientMessage =
@@ -65,7 +69,8 @@ export type ServerToClientMessage =
   | PlayerDiscardUpdateMessage
   | PlayerResourceUpdateMessage
   | TerritoryUpdateMessage
-  | TurnChangeMessage;
+  | TurnChangeMessage
+  | ConnectionAckMessage;
 
 export enum GamePhase {
   SETUP = 'SETUP',
@@ -80,9 +85,9 @@ export type FactionType = "CORPORATION" | "RUNNER";
 
 export interface PlayerData {
   id: string;
-  username: string;
+  username: string | null;
   faction: FactionType | null;
-  avatar_url: string;
+  avatar_url: string | null;
   resources: {
     credits: number;
     dataTokens: number;
