@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End of Line - Iso RPG Prototype V3.1 [Debugged]</title>
+    <style>
+        /* Simplified and Robust Styles */
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;700&display=swap');
+
+        :root {
+            --color-bg-dark: #1a1a1a;
+            --color-bg-med: #2a2a2a;
+            --color-bg-light: #3a3a3a;
+            --color-border: #444;
+            --color-text: #e0e0e0;
+            --color-text-muted: #aaa;
+            --color-primary: #4CAF50; /* Green (Neutral/Success) */
+            --color-runner: #2196F3; /* Blue */
+            --color-corp: #f44336; /* Red */
+            --color-accent: #FFEB3B; /* Yellow */
+            --color-ap: #81D4FA; /* Light Blue */
+            --color-energy: #FFF59D; /* Light Yellow */
+            --color-hp: #f44336; /* Red */
+            --color-highlight-move: rgba(33, 150, 243, 0.3); /* Blue translucent */
+            --color-highlight-target: rgba(255, 235, 59, 0.4); /* Yellow translucent */
+            --color-highlight-select: yellow;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--color-bg-dark);
+            color: var(--color-text);
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container { display: flex; flex-direction: column; flex-grow: 1; padding: 10px; }
+        #canvas-container { flex-grow: 1; position: relative; background-color: var(--color-bg-dark); border: 1px solid var(--color-border); overflow: hidden; }
+        canvas { display: block; background-color: var(--color-bg-med); /* Give canvas a base color */ }
+
+        #ui-panel {
+            width: 320px;
+            background-color: var(--color-bg-light);
+            padding: 15px;
+            border-left: 1px solid var(--color-border);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .ui-section {
+            background-color: var(--color-bg-med);
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--color-border);
+        }
+        .ui-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            color: var(--color-primary);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 5px;
+        }
+
+        .stats span, .turn-info span { display: block; margin-bottom: 4px; font-size: 0.9em; }
+        .stats .value, .turn-info .value { font-weight: bold; color: #fff; margin-left: 5px; }
+        .stats .hp { color: var(--color-hp); }
+        .stats .ap { color: var(--color-ap); }
+        .stats .energy { color: var(--color-energy); }
+
+        .abilities-list { display: flex; flex-direction: column; gap: 8px; }
+        .ability {
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-light);
+            padding: 8px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            border-radius: 3px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .ability:hover { background-color: var(--color-bg-med); }
+        .ability.selected { border-color: var(--color-highlight-select); background-color: var(--color-bg-med); }
+        .ability.on-cooldown { background: #444; border-color: #555; cursor: default; opacity: 0.6; }
+        .ability .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .ability .name { font-size: 1em; font-weight: bold; }
+        .ability .key { font-size: 0.8em; color: var(--color-text-muted); background: #555; padding: 1px 4px; border-radius: 2px;}
+        .ability .cost { font-size: 0.8em; color: var(--color-text-muted); }
+        .ability .cost .ap-cost { color: var(--color-ap); font-weight: bold; }
+        .ability .cost .energy-cost { color: var(--color-energy); font-weight: bold;}
+        .ability .description { font-size: 0.85em; color: var(--color-text-muted); }
+        .ability .cooldown { font-size: 0.8em; color: var(--color-accent); margin-top: 3px; }
+
+        .log-section { flex-grow: 1; display: flex; flex-direction: column; }
+        .log {
+            flex-grow: 1;
+            background: var(--color-bg-dark);
+            border: 1px solid var(--color-border);
+            padding: 8px;
+            font-size: 0.85em;
+            overflow-y: scroll;
+            color: var(--color-text-muted);
+            min-height: 100px;
+            border-radius: 3px;
+        }
+        .log div { padding: 2px 0; border-bottom: 1px dotted #333; }
+        .log div:last-child { border-bottom: none; }
+
+        .action-buttons button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 1em;
+            background-color: var(--color-primary);
+            color: var(--color-bg-dark);
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        .action-buttons button:hover:not(:disabled) { background-color: #66BB6A; }
+        .action-buttons button:disabled { background-color: #555; color: #999; cursor: default; }
+        #initiate-fpv-btn { background-color: var(--color-accent); color: var(--color-bg-dark); }
+        #initiate-fpv-btn:hover:not(:disabled) { background-color: #FFC107; }
+
+        .interaction-prompt {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--color-accent);
+            padding: 5px 10px;
+            font-size: 14px;
+            color: var(--color-accent);
+            display: none; /* Hidden by default */
+            border-radius: 3px;
+            z-index: 10;
+         }
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+             <div id="interaction-prompt">[E] Interact</div>
+        </div>
+    </div>
+    <div id="ui-panel">
+        <div class="ui-section turn-info">
+            <h3>Status</h3>
+            <span>Turn: <span id="turn-number" class="value">1</span></span>
+            <span>Active: <span id="active-unit" class="value">Runner</span></span>
+            <span>Objective: <span id="objective" class="value">Find Access Point</span></span>
+        </div>
+        <div class="ui-section runner-stats">
+            <h3>Runner</h3>
+            <div class="stats">
+                <span>HP: <span id="runner-hp" class="value hp">100</span> / 100</span>
+                <span>AP: <span id="runner-ap" class="value ap">4</span> / 4</span>
+                <span>Energy: <span id="runner-energy" class="value energy">50</span> / 100</span>
+            </div>
+        </div>
+         <div class="ui-section abilities">
+             <h3>Abilities</h3>
+             <div class="abilities-list" id="abilities-list">
+                <!-- Abilities added by JS -->
+             </div>
+         </div>
+         <div class="ui-section action-buttons">
+             <button id="end-turn-btn">End Turn</button>
+             <button id="initiate-fpv-btn" disabled>Initiate FPV Run!</button>
+         </div>
+         <div class="ui-section log-section">
+            <h3>Log</h3>
+            <div class="log" id="log"><div>Initializing IsoRPG V3.1...</div></div>
+         </div>
+    </div>
+
+    <script>
+        // --- Config ---
+        const TILE_SIZE = 32; // Smaller tiles for more grid space
+        const MAP_WIDTH = 25;
+        const MAP_HEIGHT = 20;
+
+        // --- Game State ---
+        let gameState = {
+            map: [], units: [], turn: 1, activeTeam: 'runner', selectedUnitId: null,
+            selectedAbilityId: null, selectedTile: null,
+            highlightedTiles: { move: [], target: [] },
+            objectiveFound: false, gameOver: false,
+            interactionTarget: null // {x, y, type}
+        };
+
+        // --- Ability Definitions (Same as V3 basic) ---
+        const abilityDefinitions = {
+            "MOVE": { id: "MOVE", name: "Move", costAP: 1, costEnergy: 0, cooldown: 0, range: 1, targetType: 'tile', description: "Move 1 adjacent tile." },
+            "INTERACT": { id: "INTERACT", name: "Interact", costAP: 1, costEnergy: 0, cooldown: 0, range: 1, targetType: 'tile', description: "Interact with adjacent object.", effect: interactEffect },
+            "SCAN": { id: "SCAN", name: "Scan Network", costAP: 2, costEnergy: 5, cooldown: 2, range: 5, targetType: 'self', description: "Detect Access Point nearby (5⚡).", effect: scanEffect }, // Self target now
+            "OVERDRIVE": { id: "OVERDRIVE", name: "Overdrive", costAP: 1, costEnergy: 10, cooldown: 4, range: 0, targetType: 'self', description: "+2 AP next turn (10⚡).", effect: overdriveEffect },
+            "SHORT_CIRCUIT": { id: "SHORT_CIRCUIT", name: "Short Circuit", costAP: 3, costEnergy: 15, cooldown: 3, range: 4, targetType: 'unit', description: "Deal 30 DMG to Guard (15⚡).", effect: shortCircuitEffect },
+            "SMOKE_BOMB": { id: "SMOKE_BOMB", name: "Smoke Bomb", costAP: 2, costEnergy: 10, cooldown: 5, range: 1, targetType: 'tile', description: "Create temporary cover (10⚡).", effect: smokeBombEffect },
+        };
+
+        // --- Canvas & UI Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const interactionPromptEl = document.getElementById('interaction-prompt');
+        const logEl = document.getElementById('log');
+        const abilitiesListEl = document.getElementById('abilities-list');
+        // ... other UI elements ...
+
+        // --- Utility Functions ---
+        function logMessage(message) { logEl.innerHTML = `<div>${new Date().toLocaleTimeString().split(' ')[0]} - ${message}</div>` + logEl.innerHTML; logEl.scrollTop = 0; }
+        function getUnitById(id) { return gameState.units.find(u => u.id === id); }
+        function getUnitsAt(x, y) { return gameState.units.filter(u => u.x === x && u.y === y); }
+        function isWalkable(x, y) { return x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT && gameState.map[y][x] !== 1; }
+        function distance(x1, y1, x2, y2) { // Using Manhattan distance for grid movement checks often makes more sense
+             return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+        }
+        function getTileType(x, y) { return gameState.map[y]?.[x]; } // Safe access
+
+        // --- Drawing Functions (Simplified & Corrected) ---
+         function resizeCanvas() {
+             const container = document.getElementById('canvas-container');
+             canvas.width = container.clientWidth;
+             canvas.height = container.clientHeight;
+             // No draw needed here, game loop handles it
+         }
+
+         function drawGame() { // Called by game loop
+             if (!ctx) return;
+             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-bg-med').trim(); // Use CSS var
+             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+             // Draw Map Tiles
+             for (let y = 0; y < MAP_HEIGHT; y++) {
+                 for (let x = 0; x < MAP_WIDTH; x++) {
+                     drawTile(x, y, gameState.map[y][x]);
+                 }
+             }
+             drawHighlights();
+             gameState.units.forEach(unit => { drawUnit(unit); });
+             if (gameState.selectedAbilityId && gameState.selectedTile) drawTargetIndicator();
+         }
+
+         function drawTile(x, y, type) {
+             const px = x * TILE_SIZE; const py = y * TILE_SIZE;
+             let tileColor = 'var(--color-bg-med)'; // Floor default
+             if (type === 1) tileColor = 'var(--color-bg-light)'; // Wall
+             else if (type === 2) tileColor = 'var(--color-primary)'; // Access Point
+
+             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(tileColor).trim();
+             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+             ctx.strokeStyle = 'var(--color-border)';
+             ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+
+             if (type === 2) { // Access Point marker
+                 ctx.fillStyle = 'var(--color-accent)';
+                 ctx.beginPath();
+                 ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE * 0.2, 0, Math.PI * 2);
+                 ctx.fill();
+             }
+         }
+
+         function drawUnit(unit) {
+             const px = unit.x * TILE_SIZE + TILE_SIZE / 2;
+             const py = unit.y * TILE_SIZE + TILE_SIZE / 2;
+             const radius = TILE_SIZE * 0.35;
+             const icon = unit.team === 'runner' ? '👤' : '🤖'; // Simple icons
+             const color = unit.team === 'runner' ? 'var(--color-runner)' : 'var(--color-corp)';
+
+             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(color).trim();
+             ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill();
+
+             // Simple Icon
+             ctx.fillStyle = 'white'; ctx.font = `${radius * 1.5}px sans-serif`;
+             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+             ctx.fillText(icon, px, py+1); // Offset slightly for better centering
+
+             // Selection Ring
+             if (unit.id === gameState.selectedUnitId) {
+                 ctx.strokeStyle = 'var(--color-highlight-select)'; ctx.lineWidth = 2;
+                 ctx.beginPath(); ctx.arc(px, py, radius + 2, 0, Math.PI * 2); ctx.stroke();
+                 ctx.lineWidth = 1;
+             }
+             // HP Bar
+             if(unit.hp < unit.maxHp) {
+                  const barW = TILE_SIZE * 0.7, barH = 5, barX = px - barW / 2, barY = py + radius + 2;
+                  const hpP = unit.hp / unit.maxHp;
+                  ctx.fillStyle = '#333'; ctx.fillRect(barX, barY, barW, barH);
+                  ctx.fillStyle = hpP > 0.5 ? 'lime' : hpP > 0.2 ? 'yellow' : 'red';
+                  ctx.fillRect(barX, barY, barW * hpP, barH);
+             }
+         }
+
+         function drawHighlights() {
+             ctx.globalAlpha = 0.4;
+             // Movement highlights
+             ctx.fillStyle = 'var(--color-highlight-move)';
+             gameState.highlightedTiles.move.forEach(tile => { ctx.fillRect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE); });
+             // Target highlights
+             ctx.fillStyle = 'var(--color-highlight-target)';
+             gameState.highlightedTiles.target.forEach(tile => { ctx.fillRect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE); });
+             ctx.globalAlpha = 1.0;
+         }
+
+         function drawTargetIndicator() {
+             ctx.strokeStyle = 'var(--color-highlight-select)'; ctx.lineWidth = 2;
+             ctx.strokeRect(gameState.selectedTile.x * TILE_SIZE + 1, gameState.selectedTile.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+             ctx.lineWidth = 1;
+         }
+
+        // --- UI Update Functions ---
+        function updateHUD() {
+            const runner = getUnitById(gameState.selectedUnitId);
+             const activeUnitName = gameState.activeTeam === 'runner' ? (runner?.type || 'Runner') : 'Corp Security';
+            if (runner) {
+                document.getElementById('runner-hp').textContent = runner.hp;
+                document.getElementById('runner-ap').textContent = runner.ap;
+                document.getElementById('runner-energy').textContent = runner.energy.toFixed(0);
+            }
+            document.getElementById('turn-number').textContent = gameState.turn;
+            document.getElementById('active-unit').textContent = activeUnitName;
+            document.getElementById('objective').textContent = gameState.objectiveFound ? 'Access Point Found!' : 'Find Access Point';
+            document.getElementById('end-turn-btn').disabled = gameState.activeTeam !== 'runner' || gameState.gameOver;
+            document.getElementById('initiate-fpv-btn').disabled = !gameState.objectiveFound || gameState.activeTeam !== 'runner' || gameState.gameOver;
+
+            // Update Abilities List
+            abilitiesListEl.innerHTML = ''; // Clear old
+            if (runner) {
+                runner.abilities.forEach((abInstance, index) => {
+                    const def = abilityDefinitions[abInstance.abilityId];
+                    if (!def) return;
+                    const isOnCooldown = abInstance.currentCooldown > 0;
+                    const canAfford = runner.ap >= def.costAP && runner.energy >= def.costEnergy;
+
+                    const div = document.createElement('div');
+                    div.classList.add('ability');
+                    if (isOnCooldown) div.classList.add('on-cooldown');
+                    if (gameState.selectedAbilityId === def.id) div.classList.add('selected');
+
+                    div.innerHTML = `
+                        <div class="header">
+                            <span class="name">${def.name}</span>
+                            <span class="key">[${index + 1}]</span>
+                        </div>
+                        <div class="cost">
+                            ${def.costAP > 0 ? `<span class="ap-cost">${def.costAP} AP</span>` : ''}
+                            ${def.costAP > 0 && def.costEnergy > 0 ? ' / ' : ''}
+                            ${def.costEnergy > 0 ? `<span class="energy-cost">${def.costEnergy}⚡</span>` : ''}
+                            ${def.costAP === 0 && def.costEnergy === 0 && def.id !== 'MOVE' && def.id !== 'INTERACT' ? '<span>Free</span>' : ''}
+                            ${def.range > 0 ? `<span> (Rng ${def.range})</span>` : ''}
+                        </div>
+                        <div class="description">${def.description}</div>
+                        ${isOnCooldown ? `<div class="cooldown">CD: ${abInstance.currentCooldown}T</div>` : ''}
+                    `;
+                    div.onclick = () => {
+                        if (!isOnCooldown && gameState.activeTeam === 'runner' && !gameState.gameOver) {
+                            selectAbility(def.id);
+                        }
+                    };
+                    abilitiesListEl.appendChild(div);
+                });
+            }
+        }
+
+        // --- Input Handling ---
+        function handleCanvasClick(event) {
+            if (gameState.activeTeam !== 'runner' || gameState.gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left; const y = event.clientY - rect.top;
+            const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE);
+            if (tileX < 0 || tileX >= MAP_WIDTH || tileY < 0 || tileY >= MAP_HEIGHT) return; // Click outside map
+
+            gameState.selectedTile = { x: tileX, y: tileY };
+            const runner = getUnitById(gameState.selectedUnitId); if (!runner) return;
+
+            if (gameState.selectedAbilityId) {
+                const ability = abilityDefinitions[gameState.selectedAbilityId];
+                const targetUnits = getUnitsAt(tileX, tileY);
+                const targetUnit = targetUnits.find(u => u.team !== runner.team); // Prioritize enemy
+
+                if (ability.targetType === 'tile' || (ability.targetType === 'unit' && targetUnit) || ability.targetType === 'any') { // Allow targeting any tile if needed
+                    const range = ability.range !== undefined ? ability.range : 1;
+                    if (distance(runner.x, runner.y, tileX, tileY) <= range) {
+                        activateAbility(runner, gameState.selectedAbilityId, { x: tileX, y: tileY, unit: targetUnit });
+                    } else { logMessage("Target out of range."); }
+                } else if (ability.targetType === 'unit' && !targetUnit) { logMessage("No valid unit target."); }
+                else { logMessage("Invalid target for ability."); }
+                // Deselect ability AFTER attempting to use it
+                gameState.selectedAbilityId = null; gameState.highlightedTiles = { move: [], target: [] };
+            } else { // Default action: Move
+                if (gameState.highlightedTiles.move.some(t => t.x === tileX && t.y === tileY)) { // Check if it's a valid move highlight
+                    activateAbility(runner, "MOVE", { x: tileX, y: tileY });
+                } else { logMessage("Cannot move there."); }
+            }
+            updateHUD(); drawGame();
+        }
+
+        function selectAbility(abilityId) {
+            if (gameState.activeTeam !== 'runner' || gameState.gameOver) return;
+            const runner = getUnitById(gameState.selectedUnitId);
+            const abilityInstance = runner.abilities.find(a => a.abilityId === abilityId);
+            const abilityDef = abilityDefinitions[abilityId];
+            if (!abilityDef || !abilityInstance) return;
+            if (abilityInstance.currentCooldown > 0) { logMessage(`${abilityDef.name} is on cooldown.`); return; }
+            if (runner.ap < abilityDef.costAP || runner.energy < abilityDef.costEnergy) { logMessage(`Cannot afford ${abilityDef.name}.`); return; }
+
+            const wasSelected = gameState.selectedAbilityId === abilityId;
+            gameState.selectedAbilityId = wasSelected ? null : abilityId; // Toggle selection
+            gameState.selectedTile = null;
+            logMessage(gameState.selectedAbilityId ? `Selected ability: ${abilityDef.name}. Select target.` : "Ability deselected.");
+            calculateHighlights(runner, gameState.selectedAbilityId);
+            updateHUD(); drawGame();
+        }
+
+        function calculateHighlights(unit, abilityId) {
+            gameState.highlightedTiles = { move: [], target: [] }; if (!unit) return;
+            if (!abilityId) { // MOVE highlights (Adjacent walkable & empty)
+                for (let dx = -1; dx <= 1; dx++) { for (let dy = -1; dy <= 1; dy++) { if (Math.abs(dx) + Math.abs(dy) !== 1) continue; const nx = unit.x + dx; const ny = unit.y + dy; if (isWalkable(nx, ny) && getUnitsAt(nx, ny).length === 0) { gameState.highlightedTiles.move.push({ x: nx, y: ny }); }}}
+            } else { // ABILITY highlights
+                const ability = abilityDefinitions[abilityId]; if (!ability || ability.targetType === 'self') return;
+                const range = ability.range !== undefined ? ability.range : 1;
+                for (let x = 0; x < MAP_WIDTH; x++) { for (let y = 0; y < MAP_HEIGHT; y++) { if (distance(unit.x, unit.y, x, y) <= range) { if (ability.targetType === 'tile' && isWalkable(x, y)) { gameState.highlightedTiles.target.push({ x, y }); } else if (ability.targetType === 'unit') { if (getUnitsAt(x, y).some(u => u.team !== unit.team)) { gameState.highlightedTiles.target.push({ x, y }); }} else if (ability.targetType === 'any') { gameState.highlightedTiles.target.push({x, y}); }}}} // Target any tile in range
+            }
+        }
+
+        function checkInteractionPrompt() {
+            if (gameState.activeTeam === 'runner' && !gameState.gameOver) {
+                const runner = getUnitById(gameState.selectedUnitId);
+                if (!runner) return;
+                const neighbors = [{x:0,y:1}, {x:0,y:-1}, {x:1,y:0}, {x:-1,y:0}];
+                let interactableFound = null;
+                for (const n of neighbors) {
+                    const nx = runner.x + n.x; const ny = runner.y + n.y;
+                    if (getTileType(nx, ny) === 2) { interactableFound = { x: nx, y: ny, type: 'Access Point' }; break; }
+                    // Add checks for other interactable objects (terminals, items) here
+                }
+                gameState.interactionTarget = interactableFound; // Store potential target
+                interactionPromptEl.style.display = interactableFound ? 'block' : 'none';
+                if (interactableFound) interactionPromptEl.textContent = `[E] Interact with ${interactableFound.type}`;
+            } else {
+                interactionPromptEl.style.display = 'none';
+                gameState.interactionTarget = null;
+            }
+        }
+
+        // --- Ability Effects V3.1 ---
+        function activateAbility(unit, abilityId, target) {
+            // ... (cost/cooldown checks as before) ...
+            const abilityDef = abilityDefinitions[abilityId];
+            const abilityInstance = unit.abilities.find(a => a.abilityId === abilityId);
+            if (!abilityDef || !abilityInstance || abilityInstance.currentCooldown > 0 || unit.ap < abilityDef.costAP || unit.energy < abilityDef.costEnergy) { return; } // Re-check affordability
+
+            unit.ap -= abilityDef.costAP; unit.energy -= abilityDef.costEnergy;
+            abilityInstance.currentCooldown = abilityDef.cooldown;
+            logMessage(`${unit.type} uses ${abilityDef.name}` + (target?.x !== undefined ? ` on (${target.x}, ${target.y})` : ''));
+
+            if (abilityDef.effect) { abilityDef.effect(unit, target); }
+            else if (abilityId === "MOVE") {
+                if (target && isWalkable(target.x, target.y) && getUnitsAt(target.x, target.y).length === 0) {
+                    unit.x = target.x; unit.y = target.y; // Instant move for now
+                } else { logMessage("Move failed."); unit.ap += abilityDef.costAP; abilityInstance.currentCooldown = 0; }
+            }
+            gameState.selectedAbilityId = null; gameState.highlightedTiles = { move: [], target: [] };
+            updateHUD(); drawGame();
+        }
+
+        function scanEffect(caster, target) { /* ... V3 logic ... */ logMessage("Scanning..."); const ap = findAccessPoint(); if (ap && distance(caster.x, caster.y, ap.x, ap.y) <= abilityDefinitions["SCAN"].range) { logMessage(`ACCESS POINT DETECTED at (${ap.x}, ${ap.y})!`); gameState.objectiveFound = true; } else { logMessage("Scan reveals nothing."); } }
+        function findAccessPoint() { /* ... V3 ... */ for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { if (gameState.map[y][x] === 2) return { x, y }; } } return null; }
+        function overdriveEffect(caster, target) { /* ... V3 ... */ logMessage("Overdrive! +2 AP next turn."); if (!caster.statusEffects) caster.statusEffects = []; caster.statusEffects.push({ type: 'GAIN_AP_NEXT_TURN', amount: 2, duration: 1 }); }
+        function shortCircuitEffect(caster, target) { /* ... V3 logic ... */ if (target?.unit && target.unit.team !== caster.team) { const damage = 30; target.unit.hp = Math.max(0, target.unit.hp - damage); logMessage(`Zapped ${target.unit.type} for ${damage} DMG. HP: ${target.unit.hp}`); if (target.unit.hp <= 0) { logMessage(`${target.unit.type} offline!`); gameState.units = gameState.units.filter(u => u.id !== target.unit.id); } } else { logMessage("Short Circuit: Invalid target."); } }
+        function smokeBombEffect(caster, target) { logMessage("Smoke Bomb deployed (Effect TBD)."); }
+        function interactEffect(caster, target) { /* ... V3 logic ... */ if (!target) return; const tileType = getTileType(target.x, target.y); if (tileType === 2) { logMessage("Access Point interface engaged!"); gameState.objectiveFound = true; logMessage("FPV Run now available."); } else { logMessage("Interacting..."); } }
+
+
+        // --- Turn Management & AI V3.1 ---
+        let aiTurnTimeout = null;
+        function endRunnerTurn() { /* ... V3 logic ... */ if (gameState.activeTeam !== 'runner' || gameState.gameOver) return; logMessage("Runner ends turn."); gameState.activeTeam = 'corp'; gameState.selectedAbilityId = null; gameState.highlightedTiles = { move: [], target: [] }; clearTimeout(aiTurnTimeout); startTurn('corp'); aiTurnTimeout = setTimeout(runAITurn, 500); }
+        function startTurn(team) { /* ... V3 logic ... */ logMessage(`--- Start ${team}'s Turn ${gameState.turn} ---`); gameState.units.forEach(unit => { if (unit.team === team) { unit.ap = unit.maxAp; if(unit.statusEffects) { unit.statusEffects = unit.statusEffects.filter(eff => { if(eff.type === 'GAIN_AP_NEXT_TURN') { logMessage(`${unit.id} gains ${eff.amount} AP!`); unit.ap += eff.amount; } eff.duration--; return eff.duration > 0; }); } } unit.abilities.forEach(ab => { if (ab.currentCooldown > 0) ab.currentCooldown--; }); }); updateHUD(); drawGame(); }
+        function runAITurn() { /* ... V3 logic ... */ if (gameState.activeTeam !== 'corp' || gameState.gameOver) return; logMessage("Corp turn..."); const runner = gameState.units.find(u => u.team === 'runner'); if (!runner) { endCorpTurn(); return; } let actions = []; gameState.units.forEach(unit => { if (unit.team === 'corp') { let currentAP = unit.maxAp; while(currentAP > 0) { const dist = distance(unit.x, unit.y, runner.x, runner.y); if (dist <= 1 && currentAP >= 1) { actions.push({ unitId: unit.id, action: 'attack', target: runner }); currentAP = 0; break; } else if (dist < 5 && currentAP >= 1) { let moveX = unit.x, moveY = unit.y; if (Math.abs(runner.x - unit.x) > Math.abs(runner.y - unit.y)) { moveX += Math.sign(runner.x - unit.x); } else { moveY += Math.sign(runner.y - unit.y); } if (isWalkable(moveX, moveY) && getUnitsAt(moveX, moveY).length === 0) { actions.push({ unitId: unit.id, action: 'move', target: { x: moveX, y: moveY } }); currentAP -= 1; break; } else { moveX = unit.x; moveY = unit.y; if (Math.abs(runner.x - unit.x) <= Math.abs(runner.y - unit.y)) { moveX += Math.sign(runner.x - unit.x); } else { moveY += Math.sign(runner.y - unit.y); } if (isWalkable(moveX, moveY) && getUnitsAt(moveX, moveY).length === 0) { actions.push({ unitId: unit.id, action: 'move', target: { x: moveX, y: moveY } }); currentAP -= 1; break; } else { currentAP = 0; } } } else { currentAP = 0; } } } }); executeGuardActions(actions); }
+        function executeGuardActions(actions) { /* ... V3 logic ... */ if (actions.length === 0) { endCorpTurn(); return; } const action = actions.shift(); const unit = getUnitById(action.unitId); if(!unit || gameState.gameOver) { executeGuardActions(actions); return; } if (action.action === 'attack') { logMessage(`Guard ${unit.id} attacks Runner!`); const damage = 15; action.target.hp = Math.max(0, action.target.hp - damage); logMessage(`Runner takes ${damage} damage. HP: ${action.target.hp}`); if (action.target.hp <= 0) { logMessage("RUNNER DOWN!"); gameState.gameOver = true; } } else if (action.action === 'move') { logMessage(`Guard ${unit.id} moves to (${action.target.x}, ${action.target.y}).`); unit.x = action.target.x; unit.y = action.target.y; } drawGame(); updateHUD(); aiTurnTimeout = setTimeout(() => executeGuardActions(actions), 300); } // Slightly faster AI actions
+        function endCorpTurn() { /* ... V3 logic ... */ if (gameState.gameOver) { updateHUD(); return; } logMessage("Corp turn ends."); gameState.turn++; gameState.activeTeam = 'runner'; startTurn('runner'); }
+
+        // --- Initialization V3.1 ---
+        function generateMap() { /* ... V3 ... */ gameState.map = []; for (let y = 0; y < MAP_HEIGHT; y++) { gameState.map[y] = []; for (let x = 0; x < MAP_WIDTH; x++) { if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1 || (Math.random() < 0.18 && !(x <= 2 && y <= 2))) { gameState.map[y][x] = 1; } else { gameState.map[y][x] = 0; }}} let ax, ay; do { ax = Math.floor(MAP_WIDTH * 0.6 + Math.random() * MAP_WIDTH * 0.3); ay = Math.floor(Math.random() * (MAP_HEIGHT - 2)) + 1; } while (gameState.map[ay][ax] === 1); gameState.map[ay][ax] = 2; logMessage(`Access point @ (${ax}, ${ay})`); }
+        function initializeGame() {
+            logMessage("Initializing IsoRPG V3.1..."); generateMap();
+            gameState.units.push({ id: 'runner-01', type: 'Runner', team: 'runner', x: 1, y: 1, hp: 100, maxHp: 100, ap: 4, maxAp: 4, energy: 50, maxEnergy: 100, abilities: [ { abilityId: "MOVE", currentCooldown: 0 }, { abilityId: "INTERACT", currentCooldown: 0 }, { abilityId: "SCAN", currentCooldown: 0 }, { abilityId: "SHORT_CIRCUIT", currentCooldown: 0 }, { abilityId: "OVERDRIVE", currentCooldown: 0 } ], statusEffects: [] });
+            gameState.selectedUnitId = 'runner-01';
+            gameState.units.push({ id: 'guard-01', type: 'Guard', team: 'corp', x: 8, y: 8, hp: 60, maxHp: 60, ap: 2, maxAp: 2, energy: 0, maxEnergy: 0, abilities: [], statusEffects: [] });
+            gameState.units.push({ id: 'guard-02', type: 'Guard', team: 'corp', x: 18, y: 15, hp: 60, maxHp: 60, ap: 2, maxAp: 2, energy: 0, maxEnergy: 0, abilities: [], statusEffects: [] });
+            gameState.activeTeam = 'runner'; gameState.turn = 1;
+            startTurn('runner');
+
+            window.addEventListener('resize', resizeCanvas); canvas.addEventListener('click', handleCanvasClick);
+            document.getElementById('end-turn-btn').onclick = endRunnerTurn;
+            document.getElementById('initiate-fpv-btn').onclick = () => { if (gameState.objectiveFound && !gameState.gameOver) { alert("TRANSITION TO FPV (SIMULATED)!"); logMessage("FPV RUN INITIATED!"); gameState.gameOver = true; updateHUD(); } };
+            document.addEventListener('keydown', (event) => { // Keyboard listener
+                if (gameState.activeTeam !== 'runner' || gameState.gameOver) return;
+                const keyNum = parseInt(event.key);
+                if (!isNaN(keyNum) && keyNum >= 1) { // Number keys for abilities
+                    const runner = getUnitById(gameState.selectedUnitId);
+                    if(runner && keyNum <= runner.abilities.length) {
+                        const abilityInstance = runner.abilities[keyNum - 1];
+                        if (abilityInstance) selectAbility(abilityInstance.abilityId);
+                    }
+                } else if (event.key === 'e' || event.key === 'E') { // Interaction key
+                    const runner = getUnitById(gameState.selectedUnitId);
+                    if(runner && gameState.interactionTarget) { // Check if interaction prompt is showing
+                         activateAbility(runner, "INTERACT", gameState.interactionTarget);
+                    } else { logMessage("Nothing nearby to interact with."); }
+                } else if (event.key === 'Escape') { // Deselect ability
+                    gameState.selectedAbilityId = null; gameState.selectedTile = null;
+                    gameState.highlightedTiles = { move: [], target: [] };
+                    logMessage("Selection cleared."); updateHUD(); drawGame();
+                }
+            });
+
+            resizeCanvas(); updateHUD();
+            logMessage("Game Ready. Runner's Turn.");
+            requestAnimationFrame(gameLoop); // Start the loop
+        }
+
+        // --- Game Loop ---
+        let lastTimestamp = 0;
+        function gameLoop(timestamp = 0) {
+            // const delta = (timestamp - lastTimestamp) / 1000; // Not used yet
+            lastTimestamp = timestamp;
+
+            // Update things that change per frame (none yet, but particles/animations would go here)
+
+            // Draw current state
+            drawGame();
+
+            // Check interaction prompt
+            checkInteractionPrompt();
+
+            if (!gameState.gameOver) {
+                requestAnimationFrame(gameLoop);
+            } else {
+                logMessage("--- GAME OVER ---");
+                // Add final messages or options here
+            }
+        }
+
+        // --- Start ---
+        document.addEventListener('DOMContentLoaded', initializeGame);
+
+    </script>
+</body>
+</html>

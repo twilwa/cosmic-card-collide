@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>End of Line - Iso RPG Prototype V4 [Fixed UI]</title>
+    <style>
+        /* (CSS is IDENTICAL to scenario_iso_rpg_prototype_v3.html for now - re-using to keep code concise) */
+         /* Augmented UI CSS (v2.0.0) - Included directly */
+        /* Ensure you have internet connection when first loading this */
+        @import url("https://unpkg.com/augmented-ui@2.0.0/augmented-ui.min.css");
+
+        /* Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;700&family=Orbitron:wght@400;700&display=swap');
+
+        :root { /* ... (Color variables - same as V3) ... */
+            --color-bg-dark: 230, 15%, 10%; --color-bg-med: 230, 15%, 18%; --color-bg-light: 230, 15%, 25%; --color-border: 210, 15%, 40%; --color-text: 210, 30%, 85%; --color-text-muted: 210, 15%, 60%; --color-primary: 180, 80%, 50%; --color-secondary: 300, 80%, 60%; --color-accent: 60, 90%, 60%; --color-runner: var(--color-primary); --color-corp: var(--color-secondary); --color-neutral: 210, 10%, 70%; --color-ap: var(--color-primary); --color-energy: var(--color-energy); --color-hp: 0, 70%, 60%; --color-interact: var(--color-accent); --aug-border-bg: hsl(var(--color-border)); --aug-border-color: hsl(var(--color-primary)); --aug-inset-bg: hsla(var(--color-bg-dark), 0.9); --aug-inset-opacity: 0.9; --aug-corner-size: 8px; --aug-border-width: 2px; }
+
+        body { margin: 0; background-color: hsl(var(--color-bg-dark)); color: hsl(var(--color-text)); font-family: 'Rajdhani', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        #game-container { display: flex; flex-direction: column; flex-grow: 1; padding: 10px; } #canvas-container { flex-grow: 1; position: relative; background-color: hsl(var(--color-bg-dark)); border: 2px solid hsl(var(--color-border)); overflow: hidden; } canvas { display: block; background-color: transparent; }
+        #ui-panel { width: 350px; background-color: transparent; padding: 15px; border: none; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; --aug-border-left: 2px; --aug-l: 15px; --aug-tl: 15px; --aug-bl: 15px; --aug-border-bg: hsl(var(--color-border), 0.5); --aug-inset-bg: hsla(var(--color-bg-med), 0.85); --aug-border-color: hsl(var(--color-primary)); backdrop-filter: blur(3px); }
+        .ui-section { background-color: transparent; padding: 12px; border: none; --aug-all-borders: 1px; --aug-border-bg: hsl(var(--color-border), 0.3); --aug-inset-bg: hsla(var(--color-bg-light), 0.7); --aug-corner-size: 5px; --aug-border-color: hsl(var(--color-border)); }
+        .ui-section h3 { margin: 0 0 10px 0; font-size: 1.2em; font-family: 'Orbitron', sans-serif; color: hsl(var(--color-primary)); border-bottom: 1px solid hsla(var(--color-border), 0.5); padding-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+        .stats span, .turn-info span { display: block; margin-bottom: 5px; font-size: 0.95em; } .stats .value, .turn-info .value { font-weight: bold; color: #fff; margin-left: 8px; } .stats .hp { color: hsl(var(--color-hp)); } .stats .ap { color: hsl(var(--color-ap)); } .stats .energy { color: hsl(var(--color-energy)); }
+        .abilities-list { display: flex; flex-direction: column; gap: 8px; } .ability { border: 1px solid hsl(var(--color-border)); background: linear-gradient(135deg, hsla(var(--color-bg-light), 0.8) 0%, hsla(var(--color-bg-med), 0.8) 100%); padding: 10px; text-align: left; cursor: pointer; user-select: none; position: relative; border-radius: 3px; transition: all 0.2s ease-in-out; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); --aug-all-borders: 1px; --aug-border-bg: hsl(var(--color-border), 0.4); --aug-inset-bg: transparent; --aug-tr: 10px; --aug-bl: 10px; } .ability:hover { background: linear-gradient(135deg, hsla(var(--color-bg-light), 0.9) 0%, hsla(var(--color-bg-med), 0.9) 100%); border-color: hsl(var(--color-primary), 0.8); transform: translateY(-1px); box-shadow: 0 2px 8px hsla(var(--color-primary), 0.3); } .ability.selected { border-color: hsl(var(--color-accent)); box-shadow: inset 0 0 10px hsla(var(--color-accent), 0.5), 0 2px 8px hsla(var(--color-accent), 0.4); transform: scale(1.02); } .ability.on-cooldown { background: linear-gradient(135deg, hsla(var(--color-hp), 0.2) 0%, hsla(var(--color-bg-med), 0.6) 100%); border-color: hsl(var(--color-hp), 0.5); cursor: default; opacity: 0.7; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); transform: none; } .ability.on-cooldown:hover { box-shadow: inset 0 0 5px rgba(0,0,0,0.3); }
+        .ability .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; } .ability .name { font-size: 1.05em; font-weight: bold; color: hsl(var(--color-text)); } .ability .key { font-size: 0.8em; color: hsl(var(--color-bg-dark)); background: hsl(var(--color-primary)); padding: 2px 5px; border-radius: 2px; font-weight: bold; } .ability .cost { font-size: 0.85em; color: hsl(var(--color-text-muted)); } .ability .cost .ap-cost { color: hsl(var(--color-ap)); font-weight: bold;} .ability .cost .energy-cost { color: hsl(var(--color-energy)); font-weight: bold;} .ability .description { font-size: 0.9em; color: hsl(var(--color-text)); margin-top: 3px;} .ability .cooldown { font-size: 0.8em; color: hsl(var(--color-hp)); margin-top: 4px; font-weight: bold;}
+        .log-section { flex-grow: 1; display: flex; flex-direction: column;} .log { flex-grow: 1; background: hsl(var(--color-bg-dark)); border: 1px solid hsl(var(--color-border), 0.5); padding: 8px; font-size: 0.85em; overflow-y: scroll; color: hsl(var(--color-text-muted)); min-height: 100px; border-radius: 3px; } .log div { padding: 2px 0; border-bottom: 1px dotted hsla(var(--color-border), 0.3); } .log div:last-child { border-bottom: none; }
+        .action-buttons button { width: 100%; margin-top: 10px; padding: 12px; font-size: 1.1em; font-family: 'Orbitron', sans-serif; background: linear-gradient(145deg, hsl(var(--color-primary), 0.8), hsl(var(--color-primary), 0.6)); color: #000; border: 1px solid hsl(var(--color-primary)); font-weight: bold; cursor: pointer; border-radius: 3px; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 1px; --aug-bl: 15px; --aug-tr: 15px; --aug-border-all: 1px; --aug-border-bg: hsl(var(--color-primary), 0.5); --aug-inset-bg: transparent; } .action-buttons button:hover:not(:disabled) { background: linear-gradient(145deg, hsl(var(--color-primary), 1), hsl(var(--color-primary), 0.8)); box-shadow: 0 0 10px hsla(var(--color-primary), 0.5); transform: translateY(-1px); } .action-buttons button:disabled { background: hsl(var(--color-bg-light)); color: hsl(var(--color-text-muted)); cursor: default; border-color: hsl(var(--color-border)); box-shadow: none; transform: none; --aug-border-bg: hsl(var(--color-border)); }
+        #initiate-fpv-btn { background: linear-gradient(145deg, hsl(var(--color-accent), 0.9), hsl(var(--color-accent), 0.7)); border-color: hsl(var(--color-accent)); --aug-border-bg: hsl(var(--color-accent), 0.5); } #initiate-fpv-btn:hover:not(:disabled) { background: linear-gradient(145deg, hsl(var(--color-accent), 1), hsl(var(--color-accent), 0.8)); box-shadow: 0 0 10px hsla(var(--color-accent), 0.5); }
+        .interaction-prompt { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: hsla(var(--color-accent), 0.9); border: 1px solid hsl(var(--color-accent)); padding: 8px 15px; font-size: 1em; font-weight: bold; color: #111; display: none; border-radius: 3px; z-index: 10; box-shadow: 0 0 10px hsla(var(--color-accent), 0.7); --aug-tr: 10px; --aug-bl: 10px; --aug-border-all: 1px; --aug-border-bg: hsl(var(--color-accent)); --aug-inset-bg: hsla(var(--color-accent), 0.9); }
+
+    </style>
+     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <div id="canvas-container"  data-augmented-ui="tl-clip br-clip both">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div id="interaction-prompt">[E] Interact</div>
+        </div>
+    </div>
+    <!-- UI Panel with Augmented UI -->
+    <div id="ui-panel" data-augmented-ui="tl-clip tr-rect br-rect bl-clip both">
+        <div class="ui-section turn-info" data-augmented-ui="tr-clip bl-clip inlay">
+            <h3>Status</h3>
+            <span>Turn: <span id="turn-number" class="value">1</span></span>
+            <span>Active: <span id="active-unit" class="value">Runner</span></span>
+            <span>Objective: <span id="objective" class="value">Find Access Point</span></span>
+        </div>
+        <div class="ui-section runner-stats" data-augmented-ui="tr-clip bl-clip inlay">
+            <h3>Runner</h3>
+            <div class="stats">
+                <span>HP: <span id="runner-hp" class="value hp">100</span> / 100</span>
+                <span>AP: <span id="runner-ap" class="value ap">4</span> / 4</span>
+                <span>Energy: <span id="runner-energy" class="value energy">50</span> / 100</span>
+            </div>
+        </div>
+         <div class="ui-section abilities" data-augmented-ui="tr-clip bl-clip inlay">
+             <h3>Abilities</h3>
+             <div class="abilities-list" id="abilities-list">
+                <!-- Abilities added by JS -->
+             </div>
+         </div>
+         <div class="ui-section action-buttons" data-augmented-ui="tr-clip bl-clip inlay">
+             <button id="end-turn-btn">End Turn</button>
+             <button id="initiate-fpv-btn" disabled>Initiate FPV Run!</button>
+         </div>
+         <div class="ui-section log-section" data-augmented-ui="tr-clip bl-clip inlay">
+            <h3>Log</h3>
+            <div class="log" id="log"><div>Isometric RPG V4 Initialized...</div></div>
+         </div>
+    </div>
+
+    <script>
+        // --- Config & Game State (Same as V3 Spruced - keeping it concise) ---
+        const TILE_SIZE = 40; const MAP_WIDTH = 20; const MAP_HEIGHT = 15; const MOVE_SPEED = 0.15; const PARTICLE_LIFESPAN = 30;
+        let gameState = { /* ... V3 gameState ... */
+            map: [], units: [], turn: 1, activeTeam: 'runner', selectedUnitId: null, selectedAbilityId: null, selectedTile: null, highlightedTiles: { move: [], target: [] }, objectiveFound: false, gameOver: false, particles: [], unitAnimations: {}
+        };
+        const abilityDefinitions = { /* ... V3 abilityDefinitions ... */
+            "MOVE": { name: "Move", costAP: 1, costEnergy: 0, cooldown: 0, range: 1, targetType: 'tile', description: "Move to adjacent tile." }, "SCAN": { id: "SCAN", name: "Scan Network", costAP: 2, costEnergy: 5, cooldown: 2, range: 5, targetType: 'tile', description: "Reveal tiles & detect AP (5⚡).", effect: scanEffect }, "OVERDRIVE": { id: "OVERDRIVE", name: "Overdrive", costAP: 1, costEnergy: 10, cooldown: 4, range: 0, targetType: 'self', description: "+2 AP next turn (10⚡).", effect: overdriveEffect }, "SHORT_CIRCUIT": { id: "SHORT_CIRCUIT", name: "Short Circuit", costAP: 3, costEnergy: 15, cooldown: 3, range: 4, targetType: 'unit', description: "Deal 30 DMG to Guard (15⚡).", effect: shortCircuitEffect }, "SMOKE_BOMB": { id: "SMOKE_BOMB", name: "Smoke Bomb", costAP: 2, costEnergy: 10, cooldown: 5, range: 1, targetType: 'tile', description: "Create temporary cover (10⚡).", effect: smokeBombEffect }, "INTERACT": { id: "INTERACT", name: "Interact", costAP: 1, costEnergy: 0, cooldown: 0, range: 1, targetType: 'tile', description: "Interact with adjacent object.", effect: interactEffect }
+        };
+
+         // --- DOM Elements (Same as V3 Spruced) ---
+         const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d'); const interactionPromptEl = document.getElementById('interaction-prompt'); const logEl = document.getElementById('log');
+         // --- Color Helpers (Same as V3 Spruced) ---
+         const getColor = (variableName) => `hsl(var(--color-${variableName}))`; const getColorWithAlpha = (variableName, alpha) => `hsla(var(--color-${variableName}), ${alpha})`;
+         // --- Utility Functions (Same as V3 Spruced) ---
+         function logMessage(message) { logEl.innerHTML = `<div>${new Date().toLocaleTimeString()} - ${message}</div>` + logEl.innerHTML; logEl.scrollTop = 0; } function getUnitById(id) { return gameState.units.find(u => u.id === id); } function getUnitsAt(x, y) { return gameState.units.filter(u => Math.floor(u.x) === x && Math.floor(u.y) === y); } function isWalkable(x, y) { return x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT && gameState.map[y][x] !== 1; } function distance(x1, y1, x2, y2) { return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2)); } function lerp(start, end, t) { return start * (1 - t) + end * t; }
+
+        // --- Drawing Functions (Same as V3 Spruced) ---
+         function resizeCanvas() { /* ... V3 ... */  const container = document.getElementById('canvas-container'); canvas.width = container.clientWidth; canvas.height = container.clientHeight; }
+         function drawGame() { if (!ctx) return; ctx.clearRect(0, 0, canvas.width, canvas.height); drawBackgroundPattern(); for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { drawTile(x, y, gameState.map[y][x]); } } drawHighlights(); gameState.units.forEach(unit => { drawUnit(unit); }); drawParticles(); if (gameState.selectedAbilityId && gameState.selectedTile) { const ability = abilityDefinitions[gameState.selectedAbilityId]; if (ability && ability.targetType !== 'self') { ctx.strokeStyle = getColorWithAlpha('accent', 1); ctx.lineWidth = 3; ctx.setLineDash([5, 5]); ctx.strokeRect(gameState.selectedTile.x * TILE_SIZE + 2, gameState.selectedTile.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4); ctx.setLineDash([]); ctx.lineWidth = 1; } } }
+         function drawBackgroundPattern() { /* ... V3 ... */ ctx.strokeStyle = getColorWithAlpha('border', 0.1); ctx.lineWidth = 1; for (let i = 0; i < Math.max(MAP_WIDTH, MAP_HEIGHT); i++) { ctx.beginPath(); ctx.moveTo(i * TILE_SIZE * 2, 0); ctx.lineTo(0, i * TILE_SIZE * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(canvas.width - i * TILE_SIZE * 2, 0); ctx.lineTo(canvas.width, i * TILE_SIZE * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, canvas.height - i * TILE_SIZE * 2); ctx.lineTo(i * TILE_SIZE * 2, canvas.height); ctx.stroke(); } }
+         function drawTile(x, y, type) { /* ... V3 ... */  const px = x * TILE_SIZE; const py = y * TILE_SIZE; let baseColor = getColor('bg-med'); if (type === 1) baseColor = getColor('bg-light'); else if (type === 2) baseColor = getColor('primary'); if (type !== 1) { const grad = ctx.createLinearGradient(px, py, px + TILE_SIZE, py + TILE_SIZE); grad.addColorStop(0, getColorWithAlpha('bg-med', 0.8)); grad.addColorStop(1, getColorWithAlpha('bg-dark', 0.8)); ctx.fillStyle = grad; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); } else { const grad = ctx.createLinearGradient(px, py, px, py + TILE_SIZE); grad.addColorStop(0, getColorWithAlpha('bg-light', 1)); grad.addColorStop(1, getColorWithAlpha('bg-med', 1)); ctx.fillStyle = grad; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); } ctx.strokeStyle = getColorWithAlpha('border', 0.3); ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE); if (type === 2) { const centerX = px + TILE_SIZE / 2; const centerY = py + TILE_SIZE / 2; const pulse = Math.sin(Date.now() * 0.005) * 0.1 + 0.9; ctx.fillStyle = getColorWithAlpha('primary', 0.8 * pulse); ctx.beginPath(); ctx.arc(centerX, centerY, TILE_SIZE * 0.25 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = getColorWithAlpha('primary', 1); ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1; } }
+         function drawUnit(unit) { /* ... V3 ... */  const anim = gameState.unitAnimations[unit.id]; let currentX = unit.x; let currentY = unit.y; if (anim) { currentX = lerp(anim.startX, anim.targetX, anim.progress); currentY = lerp(anim.startY, anim.targetY, anim.progress); } const px = currentX * TILE_SIZE + TILE_SIZE / 2; const py = currentY * TILE_SIZE + TILE_SIZE / 2; const radius = TILE_SIZE * 0.35; ctx.fillStyle = unit.team === 'runner' ? getColor('runner') : getColor('corp'); ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = unit.team === 'runner' ? getColorWithAlpha('primary', 0.5) : getColorWithAlpha('secondary', 0.5); ctx.beginPath(); ctx.arc(px, py, radius * 0.6, 0, Math.PI * 2); ctx.fill(); if (unit.id === gameState.selectedUnitId) { ctx.strokeStyle = getColor('accent'); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, py, radius + 3, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; } if(unit.hp < unit.maxHp) { const barWidth = TILE_SIZE * 0.7; const barHeight = 6; const barX = px - barWidth / 2; const barY = py - radius - barHeight - 2; const hpPercent = unit.hp / unit.maxHp; ctx.fillStyle = getColorWithAlpha('bg-dark', 0.8); ctx.fillRect(barX, barY, barWidth, barHeight); ctx.fillStyle = hpPercent > 0.5 ? getColor('primary') : hpPercent > 0.2 ? getColor('accent') : getColor('hp'); ctx.fillRect(barX, barY, barWidth * hpPercent, barHeight); ctx.strokeStyle = getColorWithAlpha('border', 0.5); ctx.strokeRect(barX, barY, barWidth, barHeight); } }
+         function drawHighlights() { /* ... V3 ... */ ctx.globalAlpha = 0.25; ctx.fillStyle = getColor('ap'); gameState.highlightedTiles.move.forEach(tile => { ctx.fillRect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE); ctx.strokeStyle = getColorWithAlpha('ap', 0.8); ctx.strokeRect(tile.x * TILE_SIZE+1, tile.y * TILE_SIZE+1, TILE_SIZE-2, TILE_SIZE-2); }); ctx.fillStyle = getColor('hp'); gameState.highlightedTiles.target.forEach(tile => { ctx.fillRect(tile.x * TILE_SIZE, tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE); ctx.strokeStyle = getColorWithAlpha('hp', 0.8); ctx.strokeRect(tile.x * TILE_SIZE+1, tile.y * TILE_SIZE+1, TILE_SIZE-2, TILE_SIZE-2); }); ctx.globalAlpha = 1.0; }
+         function drawParticles() { /* ... V3 ... */ gameState.particles.forEach((p, index) => { ctx.fillStyle = p.color; ctx.globalAlpha = p.life / PARTICLE_LIFESPAN; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, p.life * 0.1), 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1.0; }
+         function createParticles(x, y, count, color, speed = 2, spread = Math.PI * 2) { /* ... V3 ... */ const tileX = x * TILE_SIZE + TILE_SIZE / 2; const tileY = y * TILE_SIZE + TILE_SIZE / 2; for (let i = 0; i < count; i++) { const angle = Math.random() * spread - spread / 2; const currentSpeed = Math.random() * speed + 1; gameState.particles.push({ x: tileX, y: tileY, vx: Math.cos(angle) * currentSpeed, vy: Math.sin(angle) * currentSpeed, life: PARTICLE_LIFESPAN, color: color }); } }
+         function updateParticles(delta) { /* ... V3 ... */ gameState.particles.forEach((p, index) => { p.x += p.vx; p.y += p.vy; p.life--; if (p.life <= 0) { gameState.particles.splice(index, 1); } }); }
+         // --- Input Handling (Same as V3 Spruced) ---
+         function handleCanvasClick(event) { /* ... V3 ... */
+             if (gameState.activeTeam !== 'runner' || gameState.gameOver) return;
+             const rect = canvas.getBoundingClientRect(); const x = event.clientX - rect.left; const y = event.clientY - rect.top; const tileX = Math.floor(x / TILE_SIZE); const tileY = Math.floor(y / TILE_SIZE); gameState.selectedTile = { x: tileX, y: tileY }; const runner = getUnitById(gameState.selectedUnitId); if (!runner) return;
+             if (gameState.selectedAbilityId) { const ability = abilityDefinitions[gameState.selectedAbilityId]; const targetUnits = getUnitsAt(tileX, tileY); const targetUnit = targetUnits.find(u => u.team !== runner.team); if (ability.targetType === 'tile' || (ability.targetType === 'unit' && targetUnit)) { const range = ability.range !== undefined ? ability.range : 1; if (distance(runner.x, runner.y, tileX, tileY) <= range) { activateAbility(runner, gameState.selectedAbilityId, { x: tileX, y: tileY, unit: targetUnit }); } else { logMessage("Target out of range."); } } else if (ability.targetType === 'unit' && !targetUnit) { logMessage("No valid unit target."); } else { logMessage("Invalid target for ability."); } gameState.selectedAbilityId = null; gameState.highlightedTiles = { move: [], target: [] }; } else { if (isValidMove(runner, tileX, tileY)) { activateAbility(runner, "MOVE", { x: tileX, y: tileY }); } else { logMessage("Invalid move location."); } }
+             updateHUD(); drawGame();
+         }
+         function isValidMove(unit, targetX, targetY) { /* ... V3 ... */ const dx = Math.abs(unit.x - targetX); const dy = Math.abs(unit.y - targetY); return (dx <= 1 && dy <= 1 && !(dx === 0 && dy === 0)) && isWalkable(targetX, targetY) && getUnitsAt(targetX, targetY).length === 0; }
+         function selectAbility(abilityId) { /* ... V3 ... */ if (gameState.activeTeam !== 'runner' || gameState.gameOver) return; const runner = getUnitById(gameState.selectedUnitId); const abilityInstance = runner.abilities.find(a => a.abilityId === abilityId); const abilityDef = abilityDefinitions[abilityId]; if (!abilityDef || !abilityInstance || abilityInstance.currentCooldown > 0) return; if (runner.ap < abilityDef.costAP || runner.energy < abilityDef.costEnergy) { logMessage(`Cannot afford ${abilityDef.name}.`); return; } gameState.selectedAbilityId = (gameState.selectedAbilityId === abilityId) ? null : abilityId; gameState.selectedTile = null; logMessage(gameState.selectedAbilityId ? `Selected ability: ${abilityDef.name}. Select target.` : "Ability deselected."); calculateHighlights(runner, gameState.selectedAbilityId); drawGame(); updateHUD(); }
+         function calculateHighlights(unit, abilityId) { /* ... V3 ... */  gameState.highlightedTiles = { move: [], target: [] }; if (!unit) return; if (!abilityId) { const range = 1; for (let dx = -range; dx <= range; dx++) { for (let dy = -range; dy <= range; dy++) { if (dx === 0 && dy === 0) continue; const nx = unit.x + dx; const ny = unit.y + dy; if (isValidMove(unit, nx, ny)) { gameState.highlightedTiles.move.push({ x: nx, y: ny }); } } } } else { const ability = abilityDefinitions[abilityId]; if (!ability || ability.targetType === 'self') return; const range = ability.range !== undefined ? ability.range : 1; for (let dx = -range; dx <= range; dx++) { for (let dy = -range; dy <= range; dy++) { if (distance(0,0, dx, dy) > range) continue; const nx = unit.x + dx; const ny = unit.y + dy; if (nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT) { if (ability.targetType === 'tile' && isWalkable(nx, ny)) { gameState.highlightedTiles.target.push({ x: nx, y: ny }); } else if (ability.targetType === 'unit') { if (getUnitsAt(nx, ny).some(u => u.team !== unit.team)) { gameState.highlightedTiles.target.push({ x: nx, y: ny }); }} } } } } }
+         // --- Ability Effects V3 (With Particles) ---
+         function activateAbility(unit, abilityId, target) { /* ... V3 Logic with particles ... */
+            if (!unit || unit.ap <= 0) return;
+            const abilityDef = abilityDefinitions[abilityId]; const abilityInstance = unit.abilities.find(a => a.abilityId === abilityId); if (!abilityDef || !abilityInstance || abilityInstance.currentCooldown > 0) return; if (unit.ap < abilityDef.costAP || unit.energy < abilityDef.costEnergy) { logMessage(`Cannot afford ${abilityDef.name}.`); return; }
+            unit.ap -= abilityDef.costAP; unit.energy -= abilityDef.costEnergy; abilityInstance.currentCooldown = abilityDef.cooldown; logMessage(`${unit.type} uses ${abilityDef.name}` + (target?.x !== undefined ? ` on (${target.x}, ${target.y})` : ''));
+             if (abilityDef.effect) { abilityDef.effect(unit, target); } else if (abilityId === "MOVE") { if (target && isValidMove(target.x, target.y)) { startUnitAnimation(unit, target.x, target.y); } else { logMessage("Move failed - invalid target."); unit.ap += abilityDef.costAP; abilityInstance.currentCooldown = 0; } }
+             gameState.selectedAbilityId = null; gameState.selectedTile = null; gameState.highlightedTiles = { move: [], target: [] }; updateHUD(); drawGame();
+         }
+         function startUnitAnimation(unit, targetX, targetY) { /* ... V3 ... */ gameState.unitAnimations[unit.id] = { startX: unit.x, startY: unit.y, targetX: targetX, targetY: targetY, progress: 0 }; }
+         function updateAnimations(delta) { /* ... V3 ... */ let animationsFinished = true; for (const unitId in gameState.unitAnimations) { const anim = gameState.unitAnimations[unitId]; const unit = getUnitById(unitId); if (anim && unit) { animationsFinished = false; anim.progress += MOVE_SPEED / TILE_SIZE * 60 * delta; if (anim.progress >= 1) { unit.x = anim.targetX; unit.y = anim.targetY; delete gameState.unitAnimations[unitId]; } } else { delete gameState.unitAnimations[unitId]; } } return animationsFinished; }
+         function scanEffect(caster, target) { /* ... V3 with particles ... */ logMessage("Scanning network pulse..."); createParticles(caster.x, caster.y, 20, getColorWithAlpha('primary', 0.7), 3, Math.PI * 2); const accessPoint = findAccessPoint(); if (accessPoint && distance(caster.x, caster.y, accessPoint.x, accessPoint.y) <= abilityDefinitions["SCAN"].range) { logMessage(`ACCESS POINT DETECTED at (${accessPoint.x}, ${accessPoint.y})!`); gameState.objectiveFound = true; createParticles(accessPoint.x, accessPoint.y, 30, getColorWithAlpha('accent', 0.9), 1, Math.PI*2); } else { logMessage("Scan reveals no access points in range."); } }
+         function findAccessPoint() { /* ... V3 ... */ for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { if (gameState.map[y][x] === 2) return { x, y }; } } return null; }
+         function overdriveEffect(caster, target) { /* ... V3 with particles ... */ logMessage("Overdrive activated! +2 AP next turn."); createParticles(caster.x, caster.y, 15, getColorWithAlpha('ap', 0.8), 2); if (!caster.statusEffects) caster.statusEffects = []; caster.statusEffects.push({ type: 'GAIN_AP_NEXT_TURN', amount: 2, duration: 1 }); }
+         function shortCircuitEffect(caster, target) { /* ... V3 logic with particles ... */ if (target?.unit && target.unit.team !== caster.team) { const damage = 30; createParticles(target.x, target.y, 25, getColorWithAlpha('hp', 0.9), 4); target.unit.hp = Math.max(0, target.unit.hp - damage); logMessage(`Dealt ${damage} damage to ${target.unit.type} at (${target.x}, ${target.y}). HP: ${target.unit.hp}`); if (target.unit.hp <= 0) { logMessage(`${target.unit.type} neutralized!`); createParticles(target.x, target.y, 40, getColorWithAlpha('text-muted', 0.5), 1.5); gameState.units = gameState.units.filter(u => u.id !== target.unit.id); } } else { logMessage("Short Circuit fizzles - no valid target."); } }
+         function smokeBombEffect(caster, target) { /* ... V3 Placeholder visual ... */ logMessage("Smoke Bomb deployed (Visual effect TBD)."); createParticles(target.x, target.y, 50, getColorWithAlpha('text-muted', 0.5), 0.5); }
+         function interactEffect(caster, target) { /* ... V3 logic with particles ... */ if (!target) return; const tileType = gameState.map[target.y]?.[target.x]; createParticles(target.x, target.y, 10, getColorWithAlpha('accent', 0.8), 1); if (tileType === 2) { logMessage("Interacting with Access Point..."); gameState.objectiveFound = true; logMessage("Access Point confirmed! FPV Run available."); } else { logMessage("Interacting..."); } }
+
+        // --- Turn Management & AI (Same as V3 Spruced) ---
+        let aiTurnTimeout = null; function endRunnerTurn() { /* ... V3 ... */ if (gameState.activeTeam !== 'runner' || gameState.gameOver) return; logMessage("Runner ends turn."); gameState.activeTeam = 'corp'; gameState.selectedAbilityId = null; gameState.highlightedTiles = { move: [], target: [] }; clearTimeout(aiTurnTimeout); startTurn('corp'); aiTurnTimeout = setTimeout(runAITurn, 800); }
+        function startTurn(team) { /* ... V3 ... */ logMessage(`--- Start of ${team}'s Turn ${gameState.turn} ---`); gameState.units.forEach(unit => { if (unit.team === team) { unit.ap = unit.maxAp; if(unit.statusEffects) { unit.statusEffects = unit.statusEffects.filter(effect => { if(effect.type === 'GAIN_AP_NEXT_TURN') { logMessage(`${unit.id} gains ${effect.amount} AP from Overdrive!`); unit.ap += effect.amount; } effect.duration--; return effect.duration > 0; }); } } unit.abilities.forEach(ab => { if (ab.currentCooldown > 0) { ab.currentCooldown--; } }); }); updateHUD(); drawGame(); }
+        function runAITurn() { /* ... V3 ... */ if (gameState.activeTeam !== 'corp' || gameState.gameOver) return; logMessage("Corp Security activating..."); const runner = gameState.units.find(u => u.team === 'runner'); if (!runner) { logMessage("Runner gone?"); endCorpTurn(); return; } let guardActions = []; gameState.units.forEach(unit => { if (unit.team === 'corp') { let currentAP = unit.maxAp; while(currentAP > 0) { const dist = distance(unit.x, unit.y, runner.x, runner.y); if (dist <= 1.5 && currentAP >= 1) { guardActions.push({ unitId: unit.id, action: 'attack', target: runner }); currentAP = 0; } else if (dist < 6 && currentAP >= 1) { let moveX = unit.x, moveY = unit.y; if (Math.abs(runner.x - unit.x) > Math.abs(runner.y - unit.y)) { moveX += Math.sign(runner.x - unit.x); } else { moveY += Math.sign(runner.y - unit.y); } if (isWalkable(moveX, moveY) && !getUnitsAt(moveX, moveY).some(u => u.team === 'corp')) { guardActions.push({ unitId: unit.id, action: 'move', target: { x: moveX, y: moveY } }); currentAP -= 1; break; } else { moveX = unit.x; moveY = unit.y; if (Math.abs(runner.x - unit.x) <= Math.abs(runner.y - unit.y)) { moveX += Math.sign(runner.x - unit.x); } else { moveY += Math.sign(runner.y - unit.y); } if (isWalkable(moveX, moveY) && !getUnitsAt(moveX, moveY).some(u => u.team === 'corp')) { guardActions.push({ unitId: unit.id, action: 'move', target: { x: moveX, y: moveY } }); currentAP -= 1; break; } else { logMessage(`Guard ${unit.id} path blocked.`); currentAP = 0; } } } else { currentAP = 0; } } } }); executeGuardActions(guardActions); }
+        function executeGuardActions(actions) { /* ... V3 ... */  if (actions.length === 0) { endCorpTurn(); return; } const action = actions.shift(); const unit = getUnitById(action.unitId); if(!unit || gameState.gameOver) { executeGuardActions(actions); return; } if (action.action === 'attack') { logMessage(`Guard ${unit.id} attacks Runner!`); createParticles(action.target.x, action.target.y, 15, getColorWithAlpha('hp', 0.8), 3); const damage = 15; action.target.hp = Math.max(0, action.target.hp - damage); logMessage(`Runner takes ${damage} damage. HP: ${action.target.hp}`); if (action.target.hp <= 0) { logMessage("RUNNER NEUTRALIZED! Game Over."); gameState.gameOver = true; } } else if (action.action === 'move') { logMessage(`Guard ${unit.id} moves to (${action.target.x}, ${action.target.y}).`); startUnitAnimation(unit, action.target.x, action.target.y); } aiTurnTimeout = setTimeout(() => executeGuardActions(actions), 400); }
+        function endCorpTurn() { /* ... V3 ... */ if (gameState.gameOver) { updateHUD(); return; } logMessage("Corp Security turn ends."); gameState.turn++; gameState.activeTeam = 'runner'; startTurn('runner'); }
+
+         // --- Initialize Game V4 ---
+         function initializeGame() { /* ... V3 Init ... */
+             logMessage("Initializing IsoRPG V4 [Visuals Enhanced]..."); generateMap(); gameState.units.push({ id: 'runner-01', type: 'Runner', team: 'runner', x: 1, y: 1, hp: 100, maxHp: 100, ap: 4, maxAp: 4, energy: 50, maxEnergy: 100, abilities: [ { abilityId: "MOVE", currentCooldown: 0 }, { abilityId: "INTERACT", currentCooldown: 0 }, { abilityId: "SCAN", currentCooldown: 0 }, { abilityId: "SHORT_CIRCUIT", currentCooldown: 0 } ], statusEffects: [] }); gameState.selectedUnitId = 'runner-01'; gameState.units.push({ id: 'guard-01', type: 'Guard', team: 'corp', x: 10, y: 5, hp: 60, maxHp: 60, ap: 2, maxAp: 2, energy: 0, maxEnergy: 0, abilities: [], statusEffects: [] }); gameState.units.push({ id: 'guard-02', type: 'Guard', team: 'corp', x: 15, y: 10, hp: 60, maxHp: 60, ap: 2, maxAp: 2, energy: 0, maxEnergy: 0, abilities: [], statusEffects: [] }); gameState.activeTeam = 'runner'; gameState.turn = 1; startTurn('runner');
+
+             window.addEventListener('resize', resizeCanvas); canvas.addEventListener('click', handleCanvasClick);
+             document.getElementById('end-turn-btn').onclick = endRunnerTurn;
+             document.getElementById('initiate-fpv-btn').onclick = () => { if (gameState.objectiveFound) { alert("TRANSITIONING TO FPV RUN (SIMULATION)!"); logMessage("FPV RUN INITIATED!"); gameState.gameOver = true; updateHUD(); } };
+             document.addEventListener('keydown', (event) => { /* ... V3 Key handler ... */
+                 if (gameState.activeTeam !== 'runner' || gameState.gameOver) return;
+                const keyNum = parseInt(event.key); if (!isNaN(keyNum) && keyNum >= 1) { const runner = getUnitById(gameState.selectedUnitId); if(runner && keyNum <= runner.abilities.length) { const abilityInstance = runner.abilities[keyNum - 1]; if (abilityInstance) { selectAbility(abilityInstance.abilityId); } } }
+                else if (event.key === 'e' || event.key === 'E') { const runner = getUnitById(gameState.selectedUnitId); const neighbors = [{x:0,y:1}, {x:0,y:-1}, {x:1,y:0}, {x:-1,y:0}, {x:0, y:0}]; for(const n of neighbors) { const nx = runner.x + n.x; const ny = runner.y + n.y; if(nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT) { if (gameState.map[ny][nx] === 2) { activateAbility(runner, "INTERACT", { x: nx, y: ny }); break; } } } }
+                else if (event.key === 'Escape') { gameState.selectedAbilityId = null; gameState.selectedTile = null; gameState.highlightedTiles = { move: [], target: [] }; logMessage("Selection cleared."); updateHUD(); drawGame();}
+             });
+
+             resizeCanvas(); updateHUD();
+             logMessage("Tactical Phase [Visuals Enhanced] Active. Runner's Turn.");
+             gameLoop();
+         }
+
+
+        // --- Game Loop V4 (Animation & Particles) ---
+         let lastTimestamp = 0;
+         function gameLoop(timestamp = 0) {
+             const delta = (timestamp - lastTimestamp) / 1000; // Delta in seconds
+             lastTimestamp = timestamp;
+
+             const animationsFinished = updateAnimations(delta * 60); // Update animations
+             updateParticles(1); // Update particles every frame
+
+             drawGame(); // Render everything
+
+             checkInteractionPrompt(); // Update interaction prompt visibility
+
+             if (!gameState.gameOver) {
+                 requestAnimationFrame(gameLoop);
+             } else {
+                 logMessage("--- GAME OVER ---");
+             }
+         }
+
+         document.addEventListener('DOMContentLoaded', initializeGame);
+
+    </script>
+</body>
+</html>
