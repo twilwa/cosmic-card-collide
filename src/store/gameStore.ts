@@ -1,16 +1,13 @@
-
 import { create } from 'zustand';
 import { 
   GameState, 
   CardDefinition, 
   CardInstance, 
   Territory, 
-  PlayerState,
+  Player,
   MessageType,
   ServerToClientMessage,
   GamePhase,
-  PlayerData,
-  FactionType,
 } from '../types/gameTypes';
 
 interface GameStore {
@@ -30,15 +27,13 @@ interface GameStore {
   
   // Getters - these are computed properties
   getCardDefinition: (definitionId: string) => CardDefinition | undefined;
-  getMyPlayer: () => PlayerData | undefined;
+  getMyPlayer: () => Player | undefined;
   isMyTurn: () => boolean;
   
-  // Derived state - these are calculated properties
-  currentPlayer: string | undefined;
+  // Computed properties - we'll create these as functions to maintain TypeScript support
+  currentPlayer: Player | undefined;
   isPlayerTurn: boolean;
   phase: GamePhase;
-  territories: Territory[];
-  myHand: string[];
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -78,17 +73,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   getMyPlayer: () => {
     const { gameState, myClientId } = get();
     if (!gameState || !myClientId) return undefined;
-    
-    const playerState = gameState.playerStates.find(player => player.clientId === myClientId);
-    if (!playerState) return undefined;
-    
-    return {
-      id: playerState.clientId,
-      username: playerState.displayName,
-      faction: playerState.faction,
-      avatar_url: '', // Default value
-      resources: playerState.resources
-    };
+    return gameState.players.find(player => player.id === myClientId);
   },
   
   isMyTurn: () => {
@@ -97,10 +82,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return gameState.currentPlayerId === myClientId;
   },
   
-  // Computed properties
+  // Computed properties using getters
   get currentPlayer() {
-    const player = get().getMyPlayer();
-    return player?.username;
+    return get().getMyPlayer();
   },
   
   get isPlayerTurn() {
@@ -109,14 +93,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   get phase() {
     return get().gameState?.phase || GamePhase.WAITING;
-  },
-  
-  get territories() {
-    return get().gameState?.territories || [];
-  },
-  
-  get myHand() {
-    return get().gameState?.playerHand || [];
   },
   
   // Message handlers
@@ -129,155 +105,159 @@ export const useGameStore = create<GameStore>((set, get) => ({
         break;
         
       case MessageType.ALL_CARD_DEFINITIONS:
-        set(state => ({ 
-          cardDefinitions: message.cardDefinitions.reduce((acc, def) => {
+        // Ensure card definitions match the expected type
+        const typedCardDefinitions: CardDefinition[] = message.cardDefinitions.map(card => ({
+          ...card,
+          faction: card.faction as FactionType, // Cast to the proper type
+        }));
+        
+        set({ 
+          cardDefinitions: typedCardDefinitions.reduce((acc, def) => {
             acc[def.id] = def;
             return acc;
           }, {} as Record<string, CardDefinition>)
-        }));
+        });
+        break;
+        
+      case MessageType.CONNECTION_ACK:
+        console.log('Connection acknowledged by server');
         break;
         
       case MessageType.GAME_STATE_INIT:
-        set({ gameState: message.gameState });
+        if ('gameState' in message) {
+          console.log('Game state initialized', message.gameState);
+          set({ gameState: message.gameState });
+        }
         break;
         
       case MessageType.PLAYER_HAND_UPDATE:
-        set(state => {
-          if (!state.gameState) return state;
+        if ('playerId' in message && 'hand' in message) {
+          console.log('Player hand updated', message.playerId, message.hand);
           
-          const updatedPlayerStates = state.gameState.playerStates.map(player => {
-            if (player.clientId === message.clientId) {
-              return {
-                ...player,
-                zones: {
-                  ...player.zones,
+          set(state => {
+            if (!state.gameState) return state;
+            
+            const updatedPlayers = state.gameState.players.map(player => {
+              if (player.id === message.playerId) {
+                return {
+                  ...player,
                   hand: message.hand
-                }
-              };
-            }
-            return player;
+                };
+              }
+              return player;
+            });
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                players: updatedPlayers
+              }
+            };
           });
-          
-          return {
-            ...state,
-            gameState: {
-              ...state.gameState,
-              playerStates: updatedPlayerStates
-            }
-          };
-        });
+        }
         break;
         
       case MessageType.TURN_CHANGE:
-        set(state => {
-          if (!state.gameState) return state;
+        if ('currentPlayerId' in message && 'turnNumber' in message) {
+          console.log('Turn changed', message.currentPlayerId, message.turnNumber);
           
-          return {
-            ...state,
-            gameState: {
-              ...state.gameState,
-              currentPlayerId: message.currentPlayerId,
-              turnNumber: message.turnNumber,
-              phase: GamePhase.TURN_BASED
-            }
-          };
-        });
+          set(state => {
+            if (!state.gameState) return state;
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                currentPlayerId: message.currentPlayerId,
+                turnNumber: message.turnNumber,
+                phase: GamePhase.TURN_BASED
+              }
+            };
+          });
+        }
         break;
         
       case MessageType.PLAYER_RESOURCE_UPDATE:
-        set(state => {
-          if (!state.gameState) return state;
+        if ('playerId' in message && 'resources' in message) {
+          console.log('Player resources updated', message.playerId, message.resources);
           
-          const updatedPlayerStates = state.gameState.playerStates.map(player => {
-            if (player.clientId === message.clientId) {
-              return {
-                ...player,
-                resources: message.resources
-              };
-            }
-            return player;
+          set(state => {
+            if (!state.gameState) return state;
+            
+            const updatedPlayers = state.gameState.players.map(player => {
+              if (player.id === message.playerId) {
+                return {
+                  ...player,
+                  resources: message.resources
+                };
+              }
+              return player;
+            });
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                players: updatedPlayers
+              }
+            };
           });
-          
-          return {
-            ...state,
-            gameState: {
-              ...state.gameState,
-              playerStates: updatedPlayerStates
-            }
-          };
-        });
+        }
         break;
         
       case MessageType.TERRITORY_UPDATE:
-        set(state => {
-          if (!state.gameState) return state;
+        if ('territory' in message) {
+          console.log('Territory updated', message.territory);
           
-          return {
-            ...state,
-            gameState: {
-              ...state.gameState,
-              territories: message.territories
-            }
-          };
-        });
+          set(state => {
+            if (!state.gameState) return state;
+            
+            const territory = message.territory;
+            const updatedTerritories = state.gameState.territories.map(t => {
+              if (t.id === territory.id) {
+                return territory;
+              }
+              return t;
+            });
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                territories: updatedTerritories
+              }
+            };
+          });
+        }
         break;
         
       case MessageType.PLAYER_DISCARD_UPDATE:
-        set(state => {
-          if (!state.gameState) return state;
+        if ('playerId' in message && 'discard' in message) {
+          console.log('Player discard updated', message.playerId, message.discard);
           
-          const updatedPlayerStates = state.gameState.playerStates.map(player => {
-            if (player.clientId === message.clientId) {
-              return {
-                ...player,
-                zones: {
-                  ...player.zones,
-                  discardPile: message.discardPile
-                }
-              };
-            }
-            return player;
+          set(state => {
+            if (!state.gameState) return state;
+            
+            const updatedPlayers = state.gameState.players.map(player => {
+              if (player.id === message.playerId) {
+                return {
+                  ...player,
+                  discard: message.discard
+                };
+              }
+              return player;
+            });
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                players: updatedPlayers
+              }
+            };
           });
-          
-          return {
-            ...state,
-            gameState: {
-              ...state.gameState,
-              playerStates: updatedPlayerStates
-            }
-          };
-        });
-        break;
-        
-      case MessageType.PLAYER_DECK_UPDATE:
-        set(state => {
-          if (!state.gameState) return state;
-          
-          // Only updating the deckSize, not the actual deck content for security
-          const updatedPlayerStates = state.gameState.playerStates.map(player => {
-            if (player.clientId === message.clientId) {
-              // Create a deck of the right size with undefined contents
-              const dummyDeck: CardInstance[] = Array(message.deckSize).fill(null);
-              
-              return {
-                ...player,
-                zones: {
-                  ...player.zones,
-                  deck: dummyDeck
-                }
-              };
-            }
-            return player;
-          });
-          
-          return {
-            ...state,
-            gameState: {
-              ...state.gameState,
-              playerStates: updatedPlayerStates
-            }
-          };
-        });
+        }
         break;
         
       default:

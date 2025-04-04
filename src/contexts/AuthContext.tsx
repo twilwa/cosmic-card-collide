@@ -1,73 +1,44 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../integrations/supabase/client';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { PlayerData } from '@/types/gameTypes';
-import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { FactionType } from '@/types/gameTypes';
 
-// Define context type
-export interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  playerData: PlayerData | null;
-  isLoading: boolean;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  setGuestMode: (isGuest: boolean) => void;
-  isGuest: boolean;
+export interface PlayerData {
+  id: string;
+  username: string | null;
+  faction: FactionType | null;
+  avatar_url: string | null;
+  resources: {
+    credits: number;
+    dataTokens: number;
+  };
 }
 
-// Create context with default values
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  session: null,
-  playerData: null,
-  isLoading: true,
-  signUp: async () => {},
-  signOut: async () => {},
-  setGuestMode: () => {},
-  isGuest: false,
-});
+interface AuthContextType {
+  session: Session | null;
+  user: User | null;
+  playerData: PlayerData | null;
+  isLoading: boolean;
+  error: Error | null;
+  isGuest: boolean;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  enableGuestMode: () => void;
+  disableGuestMode: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [isGuest, setIsGuest] = useState(false);
-
-  useEffect(() => {
-    // Check active session and set user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchPlayerData(session.user.id);
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          fetchPlayerData(session.user.id);
-        } else {
-          setPlayerData(null);
-          setIsLoading(false);
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   const fetchPlayerData = async (userId: string) => {
     try {
@@ -78,103 +49,171 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        throw error;
+        console.error('Error fetching player data:', error);
+        return null;
       }
 
-      if (data) {
-        // Convert db result to PlayerData type
-        const resourcesData = data.resources as {
-          credits: number;
-          dataTokens: number;
-        };
+      return data as PlayerData;
+    } catch (err) {
+      console.error('Error in fetchPlayerData:', err);
+      return null;
+    }
+  };
 
-        setPlayerData({
-          id: data.id,
-          username: data.username,
-          faction: data.faction,
-          avatar_url: data.avatar_url || '',
-          resources: resourcesData,
-        });
+  useEffect(() => {
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      try {
+        // Get current session
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          throw error;
+        }
+
+        setSession(session);
+        setUser(session?.user || null);
+
+        if (session?.user) {
+          const playerData = await fetchPlayerData(session.user.id);
+          setPlayerData(playerData);
+          setIsGuest(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setError(error as Error);
+      } finally {
+        setIsLoading(false);
       }
+    };
+
+    initializeAuth();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event);
+        setSession(session);
+        setUser(session?.user || null);
+        
+        if (session?.user) {
+          const playerData = await fetchPlayerData(session.user.id);
+          setPlayerData(playerData);
+          setIsGuest(false);
+        } else {
+          setPlayerData(null);
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const signInWithEmail = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (error) {
-      console.error('Error fetching player data:', error);
+      setError(error as Error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUpWithEmail = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Success!",
-        description: "Check your email for confirmation link",
-      });
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
     } catch (error) {
-      toast({
-        title: "Error during signup",
-        description: (error as Error).message,
-        variant: "destructive",
+      setError(error as Error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
+      if (error) throw error;
+    } catch (error) {
+      setError(error as Error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signOut = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      await supabase.auth.signOut();
-      setPlayerData(null);
-      toast({
-        title: "Signed out",
-        description: "You've been successfully signed out",
-      });
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setIsGuest(false);
     } catch (error) {
-      toast({
-        title: "Error signing out",
-        description: (error as Error).message,
-        variant: "destructive",
-      });
+      setError(error as Error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const setGuestMode = (guest: boolean) => {
-    setIsGuest(guest);
-    if (guest) {
-      // Set default guest data
-      setPlayerData({
-        id: 'guest',
-        username: 'Guest',
-        faction: null,
-        avatar_url: '',
-        resources: {
-          credits: 5,
-          dataTokens: 3
-        }
-      });
-    }
+  const enableGuestMode = () => {
+    setIsGuest(true);
+    setPlayerData({
+      id: 'guest-' + Math.random().toString(36).substring(2, 11),
+      username: 'Guest',
+      faction: null,
+      avatar_url: null,
+      resources: {
+        credits: 5,
+        dataTokens: 3,
+      },
+    });
   };
 
-  return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      playerData, 
-      isLoading, 
-      signUp, 
-      signOut, 
-      setGuestMode, 
-      isGuest 
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const disableGuestMode = () => {
+    setIsGuest(false);
+    setPlayerData(null);
+  };
+
+  const contextValue: AuthContextType = {
+    session,
+    user,
+    playerData,
+    isLoading,
+    error,
+    isGuest,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signOut,
+    enableGuestMode,
+    disableGuestMode,
+  };
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
